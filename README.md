@@ -2,8 +2,9 @@
 
 > 链接人类的，我希望不是链接。
 
-<!-- 把你最得意的一张生成图贴这里。建议尺寸 1920px，或者两张卡（Spotify + Apple Music）拼一张。 -->
-![Hero](https://placehold.co/1280x640?text=Drop+a+screenshot+here)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e51dc891-90e1-465d-b3e6-ad20a74b2bee" alt="MusiCard hero" width="420"/>
+</p>
 
 把 Spotify / Apple Music 单曲变成一张能直接发出去的图 — 国内聊天软件里分享一首歌，不再只是丢一串 URL 这么生硬。
 
@@ -25,12 +26,28 @@ MusiCard 把"分享一首歌"压缩成**一张图**：聊天里一眼就能看�
 
 ## 长这样
 
-<!-- 三张图横排：Spotify 卡 / Apple Music 卡 / 编辑界面 -->
+平台 × 有无歌词，四种状态：
+
 <table>
   <tr>
-    <td><img src="https://placehold.co/400x600?text=Spotify+Card" alt="Spotify Card"/></td>
-    <td><img src="https://placehold.co/400x600?text=Apple+Music+Card" alt="Apple Music Card"/></td>
-    <td><img src="https://placehold.co/400x600?text=Lyrics+Picker" alt="Editor"/></td>
+    <td width="50%" align="center">
+      <img src="https://github.com/user-attachments/assets/229b3f01-e4aa-4d2c-8370-ffbafa494b00" alt="Spotify card without lyrics" width="360"/>
+      <br/><sub><b>Spotify</b> · 无歌词</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://github.com/user-attachments/assets/f1f6f92a-ed6a-4ccd-9794-8db50bf03968" alt="Spotify card with lyrics" width="360"/>
+      <br/><sub><b>Spotify</b> · 有歌词</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="https://github.com/user-attachments/assets/134279bc-1c63-41a9-9523-8d2a162f191b" alt="Apple Music card without lyrics" width="360"/>
+      <br/><sub><b>Apple Music</b> · 无歌词</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="https://github.com/user-attachments/assets/e51dc891-90e1-465d-b3e6-ad20a74b2bee" alt="Apple Music card with lyrics" width="360"/>
+      <br/><sub><b>Apple Music</b> · 有歌词</sub>
+    </td>
   </tr>
 </table>
 
