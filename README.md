@@ -3,7 +3,7 @@
 > 链接人类的，我希望不是链接。
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/e51dc891-90e1-465d-b3e6-ad20a74b2bee" alt="MusiCard hero" width="420"/>
+  <img src="https://github.com/user-attachments/assets/81d0fa43-1b89-4db6-9638-e34fbe2736d6" alt="MusiCard hero" width="420"/>
 </p>
 
 把 Spotify / Apple Music 单曲变成一张能直接发出去的图 — 国内聊天软件里分享一首歌，不再只是丢一串 URL 这么生硬。
@@ -41,11 +41,11 @@ MusiCard 把"分享一首歌"压缩成**一张图**：聊天里一眼就能看�
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="https://github.com/user-attachments/assets/134279bc-1c63-41a9-9523-8d2a162f191b" alt="Apple Music card without lyrics" width="360"/>
+      <img src="https://github.com/user-attachments/assets/4c34bc47-1b6e-4983-8efc-f76a5e6fc9b3" alt="Apple Music card without lyrics" width="360"/>
       <br/><sub><b>Apple Music</b> · 无歌词</sub>
     </td>
     <td width="50%" align="center">
-      <img src="https://github.com/user-attachments/assets/e51dc891-90e1-465d-b3e6-ad20a74b2bee" alt="Apple Music card with lyrics" width="360"/>
+      <img src="https://github.com/user-attachments/assets/81d0fa43-1b89-4db6-9638-e34fbe2736d6" alt="Apple Music card with lyrics" width="360"/>
       <br/><sub><b>Apple Music</b> · 有歌词</sub>
     </td>
   </tr>
