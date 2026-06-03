@@ -1,6 +1,4 @@
-import { useMemo } from 'react';
 import styles from './LyricsPicker.module.css';
-import { parseLyrics } from '../lib/lrclib';
 
 export type LyricsState =
   | { kind: 'idle' }
@@ -10,32 +8,27 @@ export type LyricsState =
 
 type Props = {
   state: LyricsState;
+  lines: string[];
   manualText: string;
   onManualTextChange: (text: string) => void;
-  selected: string[];
-  onToggle: (line: string) => void;
+  selected: number[];
+  onToggle: (idx: number) => void;
   maxSelected: number;
 };
 
 export default function LyricsPicker({
   state,
+  lines,
   manualText,
   onManualTextChange,
   selected,
   onToggle,
   maxSelected,
 }: Props) {
-  const manualLines = useMemo(
-    () => (manualText ? parseLyrics(manualText) : []),
-    [manualText],
-  );
-
   if (state.kind === 'idle') return null;
 
   const isLoading = state.kind === 'loading';
-  const fromLrclib = state.kind === 'found' ? state.lines : [];
-  const lines = fromLrclib.length > 0 ? fromLrclib : manualLines;
-  const isManualMode = state.kind === 'not-found' && fromLrclib.length === 0;
+  const isManualMode = state.kind === 'not-found';
 
   return (
     <div className={styles.wrap}>
@@ -50,7 +43,9 @@ export default function LyricsPicker({
 
       {isManualMode && (
         <>
-          <div className={styles.tip}>LRCLIB 没收录这首歌,可以从 Spotify / Apple Music app 复制歌词粘到这:</div>
+          <div className={styles.tip}>
+            LRCLIB 没收录这首歌,可以从 Spotify / Apple Music app 复制歌词粘到这:
+          </div>
           <textarea
             className={styles.textarea}
             value={manualText}
@@ -63,16 +58,16 @@ export default function LyricsPicker({
       {!isLoading && lines.length > 0 && (
         <ul className={styles.list}>
           {lines.map((line, i) => {
-            const selectedIdx = selected.indexOf(line);
-            const isSelected = selectedIdx >= 0;
+            const order = selected.indexOf(i);
+            const isSelected = order >= 0;
             return (
               <li
-                key={`${i}-${line}`}
+                key={i}
                 className={`${styles.line} ${isSelected ? styles.lineSelected : ''}`}
-                onClick={() => onToggle(line)}
+                onClick={() => onToggle(i)}
               >
                 {isSelected ? (
-                  <span className={styles.badge}>{selectedIdx + 1}</span>
+                  <span className={styles.badge}>{order + 1}</span>
                 ) : (
                   <span className={styles.badgePlaceholder} />
                 )}

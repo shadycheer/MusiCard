@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ShareCard from '@/components/ShareCard';
 import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
 import { generateQrSvg } from '@/lib/qr';
 import { renderCardCanvas } from '@/lib/renderCardCanvas';
-import { fetchLyrics } from '@/lib/lrclib';
+import { fetchLyrics, parseLyrics } from '@/lib/lrclib';
 import { proxyCoverUrl } from '@/lib/coverProxy';
 import type { Platform } from '@/lib/musicUrl';
 import styles from './page.module.css';
@@ -48,7 +48,22 @@ export default function Page() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [manualText, setManualText] = useState('');
-  const [selectedLyrics, setSelectedLyrics] = useState<string[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+
+  const lyricLines = useMemo(() => {
+    if (lyricsState.kind === 'found' && lyricsState.lines.length > 0) {
+      return lyricsState.lines;
+    }
+    return manualText ? parseLyrics(manualText) : [];
+  }, [lyricsState, manualText]);
+
+  const selectedLyricLines = useMemo(
+    () =>
+      selectedIndices
+        .map((i) => lyricLines[i])
+        .filter((s): s is string => typeof s === 'string'),
+    [selectedIndices, lyricLines],
+  );
 
   useEffect(() => {
     if (state.kind !== 'success') {
@@ -69,10 +84,10 @@ export default function Page() {
     if (state.kind !== 'success') {
       setLyricsState({ kind: 'idle' });
       setManualText('');
-      setSelectedLyrics([]);
+      setSelectedIndices([]);
       return;
     }
-    setSelectedLyrics([]);
+    setSelectedIndices([]);
     setManualText('');
     setLyricsState({ kind: 'loading' });
 
@@ -93,16 +108,12 @@ export default function Page() {
     return () => ctrl.abort();
   }, [state]);
 
-  const toggleLyric = (line: string) => {
-    setSelectedLyrics((prev) => {
-      const idx = prev.indexOf(line);
-      if (idx >= 0) {
-        return prev.filter((l) => l !== line);
-      }
-      if (prev.length >= MAX_SELECTED_LYRICS) {
-        return [...prev.slice(1), line];
-      }
-      return [...prev, line];
+  const toggleLyric = (idx: number) => {
+    setSelectedIndices((prev) => {
+      const at = prev.indexOf(idx);
+      if (at >= 0) return prev.filter((i) => i !== idx);
+      if (prev.length >= MAX_SELECTED_LYRICS) return [...prev.slice(1), idx];
+      return [...prev, idx];
     });
   };
 
@@ -117,7 +128,7 @@ export default function Page() {
         coverUrl: proxyCoverUrl(state.track.coverUrl),
         qrSvg,
         platform: state.track.platform,
-        lyrics: selectedLyrics,
+        lyrics: selectedLyricLines,
         targetWidth: 1920,
       });
       downloadDataUrl(
@@ -168,7 +179,7 @@ export default function Page() {
               coverUrl={proxyCoverUrl(state.track.coverUrl)}
               qrSvg={qrSvg}
               platform={state.track.platform}
-              lyrics={selectedLyrics}
+              lyrics={selectedLyricLines}
             />
           )}
         </div>
@@ -176,9 +187,10 @@ export default function Page() {
         {state.kind === 'success' && (
           <LyricsPicker
             state={lyricsState}
+            lines={lyricLines}
             manualText={manualText}
             onManualTextChange={setManualText}
-            selected={selectedLyrics}
+            selected={selectedIndices}
             onToggle={toggleLyric}
             maxSelected={MAX_SELECTED_LYRICS}
           />
