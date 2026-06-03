@@ -50,6 +50,38 @@ function triggerDownload(url: string, filename: string): void {
   document.body.removeChild(a);
 }
 
+function isMobileUA(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+/** Attempt the Web Share API with a file payload. On mobile this opens the
+ *  native share sheet which includes "Save to Photos" / "保存到相册".
+ *  Returns true if share completed (or was cancelled by user), false if
+ *  the API isn't usable and the caller should fall back to download. */
+async function tryShareFile(blob: Blob, filename: string): Promise<boolean> {
+  if (typeof navigator === 'undefined') return false;
+  if (typeof navigator.share !== 'function') return false;
+
+  const file = new File([blob], filename, { type: 'image/png' });
+  if (
+    typeof navigator.canShare !== 'function' ||
+    !navigator.canShare({ files: [file] })
+  ) {
+    return false;
+  }
+
+  try {
+    await navigator.share({ files: [file] });
+    return true;
+  } catch (err) {
+    // User dismissed the share sheet — they made a choice, don't fall back.
+    if (err instanceof Error && err.name === 'AbortError') return true;
+    // Any other error → caller falls back to download path.
+    return false;
+  }
+}
+
 export default function Page() {
   const [input, setInput] = useState('');
   const { state, refetch } = useTrackInfo(input);
@@ -156,18 +188,22 @@ export default function Page() {
       });
 
       const blob = await canvasToBlob(canvas);
-      const url = URL.createObjectURL(blob);
       const filename = sanitizeFilename(state.track.title, state.track.platform);
 
-      // Desktop + modern Safari: this saves the file.
-      // In-app browsers (WeChat, Weibo) silently ignore the download attr —
-      // for them, the inline preview below is the actual export path.
-      triggerDownload(url, filename);
+      // Mobile: try Web Share API → system share sheet → "Save to Photos".
+      // The image goes straight to the camera roll, one tap.
+      const shared = isMobileUA() && (await tryShareFile(blob, filename));
 
+      // Either way, expose the result inline so the user has a fallback path
+      // (long-press save) if the share sheet was dismissed or unsupported.
+      const url = URL.createObjectURL(blob);
       setExportedUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return url;
       });
+
+      // Desktop path: also trigger auto-download into Downloads folder.
+      if (!shared) triggerDownload(url, filename);
 
       recordEvent('export');
     } catch (err) {
@@ -243,7 +279,8 @@ export default function Page() {
         {exportedUrl && (
           <div className={styles.exportResult}>
             <p className={styles.exportHint}>
-              桌面端已自动下载。手机端 <strong>长按图片</strong> 保存到相册。
+              手机端通过 <strong>分享菜单</strong> 选「保存到相册」，或
+              <strong>长按图片</strong> 手动保存。桌面端已自动下载。
             </p>
             <img
               className={styles.exportImage}
