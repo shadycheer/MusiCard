@@ -56,8 +56,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const token = await getAccessToken();
+    // Accept-Language triggers Spotify's localized names feature — Asian
+    // artist names come back in their original script (e.g., "陳綺貞" instead
+    // of the canonical Latin "Cheer Chen"). Falls back to canonical when an
+    // artist has no localized name registered.
     const res = await fetch(`${SPOTIFY_API_BASE}/tracks/${trackId}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Accept-Language': 'zh-TW',
+      },
     });
     if (!res.ok) {
       return NextResponse.json(
