@@ -1,0 +1,134 @@
+/* Spotify-flavored share card.
+   Pure black bg, Manrope (Circular Std analog), green accent, cover-led. */
+
+.card {
+  width: calc(320px * var(--s, 1));
+  background: #000000;
+  color: #ffffff;
+  /* border-radius: calc(10px * var(--s, 1)); */
+  display: flex;
+  flex-direction: column;
+  padding: calc(20px * var(--s, 1));
+  gap: calc(16px * var(--s, 1));
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: var(--font-spotify);
+  box-shadow: 0 calc(20px * var(--s, 1)) calc(48px * var(--s, 1)) rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Cover with overlay play button ───────────────────────────────── */
+
+.coverWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: calc(6px * var(--s, 1));
+  overflow: hidden;
+  background: #181818;
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Song info ────────────────────────────────────────────────────── */
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s, 1));
+}
+
+.title {
+  font-family: var(--font-spotify);
+  font-size: calc(22px * var(--s, 1));
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: calc(-0.5px * var(--s, 1));
+  color: #ffffff;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.artist {
+  font-family: var(--font-spotify);
+  font-size: calc(14px * var(--s, 1));
+  font-weight: 500;
+  color: #B3B3B3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* ─── Lyrics ───────────────────────────────────────────────────────── */
+
+.lyrics {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s, 1));
+  padding: calc(14px * var(--s, 1)) calc(16px * var(--s, 1));
+  background: #181818;
+  border-left: calc(3px * var(--s, 1)) solid #1ED760;
+}
+
+.lyricLine {
+  font-family: var(--font-spotify);
+  font-size: calc(13px * var(--s, 1));
+  font-weight: 600;
+  line-height: 1.45;
+  color: #ffffff;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* ─── Foot: brand + QR ─────────────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s, 1));
+  padding-top: calc(4px * var(--s, 1));
+}
+
+.brandLockup {
+  display: block;
+  height: calc(24px * var(--s, 1));
+  /* Auto width — SVG keeps its 823.46 / 225.25 aspect ratio (≈ 88px wide at 24h) */
+  flex-shrink: 0;
+}
+
+.brandLockup svg {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+
+.qr {
+  width: calc(44px * var(--s, 1));
+  height: calc(44px * var(--s, 1));
+  flex-shrink: 0;
+  background: #ffffff;
+  border-radius: calc(4px * var(--s, 1));
+  padding: calc(3px * var(--s, 1));
+  box-sizing: border-box;
+}
+
+.qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

@@ -1,0 +1,17 @@
+node_modules
+.next/
+out/
+tsconfig.tsbuildinfo
+
+*.log
+.DS_Store
+
+.env*.local
+!.env.local.example
+
+.superpowers/
+.claude/
+
+.vscode/*
+!.vscode/extensions.json
+.idea
