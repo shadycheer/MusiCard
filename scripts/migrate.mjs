@@ -25,10 +25,18 @@ const migration = readFileSync(
   'utf8',
 );
 
+// Strip comment-only lines, then split on `;\n`. The previous version
+// dropped any statement whose first line was a `--` comment.
 const statements = migration
   .split(/;\s*\n/)
-  .map((s) => s.trim())
-  .filter((s) => s && !s.startsWith('--'));
+  .map((s) =>
+    s
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('--'))
+      .join('\n')
+      .trim(),
+  )
+  .filter((s) => s);
 
 console.log(`▸ Running ${statements.length} statement(s)...`);
 for (const stmt of statements) {

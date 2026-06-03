@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
       platform: 'appleMusic',
       externalId: trackId,
       country,
+      locale: null,
       title: item.trackName,
       artist: item.artistName,
       coverUrl,

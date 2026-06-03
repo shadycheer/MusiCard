@@ -3,10 +3,11 @@
 
 -- ─── 1. Track metadata cache ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS tracks (
-  cache_key      TEXT PRIMARY KEY,            -- "spotify:<id>" | "apple:<country>:<id>"
+  cache_key      TEXT PRIMARY KEY,            -- "spotify:<locale>:<id>" | "apple:<country>:<id>"
   platform       TEXT NOT NULL,               -- 'spotify' | 'appleMusic'
   external_id    TEXT NOT NULL,               -- raw track id from platform
-  country        TEXT,                        -- only set for Apple Music
+  country        TEXT,                        -- only set for Apple Music (iTunes store country)
+  locale         TEXT,                        -- only set for Spotify (major language tag: zh/ja/ko/en/...)
   title          TEXT NOT NULL,
   artist         TEXT NOT NULL,
   cover_url      TEXT NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS tracks (
 CREATE INDEX IF NOT EXISTS tracks_hit_count_idx ON tracks (hit_count DESC);
 CREATE INDEX IF NOT EXISTS tracks_last_hit_idx  ON tracks (last_hit_at DESC NULLS LAST);
 CREATE INDEX IF NOT EXISTS tracks_platform_idx  ON tracks (platform);
+CREATE INDEX IF NOT EXISTS tracks_locale_idx    ON tracks (locale) WHERE locale IS NOT NULL;
 
 -- ─── 2. Lyrics cache ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS lyrics (

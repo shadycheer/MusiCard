@@ -49,21 +49,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'invalid track id' }, { status: 400 });
   }
 
-  const cacheKey = `spotify:${trackId}`;
+  const { header: acceptLanguage, bucket: localeBucket } =
+    pickLocale(request);
+  const cacheKey = `spotify:${localeBucket}:${trackId}`;
 
   const cached = await getCachedTrack(cacheKey);
   if (cached) return NextResponse.json(toResponse(cached));
 
   try {
     const token = await getAccessToken();
-    // Accept-Language triggers Spotify's localized names feature — Asian
-    // artist names come back in their original script (e.g., "陳綺貞" instead
-    // of the canonical Latin "Cheer Chen"). Falls back to canonical when an
-    // artist has no localized name registered.
+    // Accept-Language triggers Spotify's Localized Names feature — Asian
+    // artists come back in their registered script (e.g. 陳綺貞 instead of
+    // Cheer Chen). Artists without a localized name fall back to canonical.
     const res = await fetch(`${SPOTIFY_API_BASE}/tracks/${trackId}`, {
       headers: {
         Authorization: `Bearer ${token}`,
-        'Accept-Language': 'zh-TW',
+        'Accept-Language': acceptLanguage,
       },
     });
     if (!res.ok) {
@@ -79,6 +80,7 @@ export async function GET(request: NextRequest) {
       platform: 'spotify',
       externalId: trackId,
       country: null,
+      locale: localeBucket,
       title: track.name,
       artist: track.artists.map((a) => a.name).join(', '),
       coverUrl: cover?.url ?? '',
@@ -102,4 +104,23 @@ function toResponse(t: CachedTrack) {
     coverUrl: t.coverUrl,
     sourceUrl: t.sourceUrl,
   };
+}
+
+/**
+ * Picks the locale from the request's Accept-Language header.
+ * Returns:
+ *   - `header`: the value to forward to Spotify (full BCP47, e.g. "zh-CN")
+ *   - `bucket`: the major language code for cache bucketing (e.g. "zh")
+ *
+ * zh-CN and zh-TW share a cache bucket because Spotify returns identical
+ * data for both (artists register a single localized name per major language).
+ */
+function pickLocale(request: NextRequest): { header: string; bucket: string } {
+  const first = request.headers
+    .get('accept-language')
+    ?.split(',')[0]
+    ?.trim();
+  if (!first) return { header: 'zh-TW', bucket: 'zh' };
+  const major = first.split('-')[0].toLowerCase();
+  return { header: first, bucket: major };
 }

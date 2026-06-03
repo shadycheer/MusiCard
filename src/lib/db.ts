@@ -10,6 +10,7 @@ export type CachedTrack = {
   platform: Platform;
   externalId: string;
   country: string | null;
+  locale: string | null;
   title: string;
   artist: string;
   coverUrl: string;
@@ -22,7 +23,7 @@ export async function getCachedTrack(
   if (!sql) return null;
   try {
     const rows = (await sql`
-      SELECT platform, external_id, country, title, artist, cover_url, source_url
+      SELECT platform, external_id, country, locale, title, artist, cover_url, source_url
       FROM tracks
       WHERE cache_key = ${cacheKey}
       LIMIT 1
@@ -30,6 +31,7 @@ export async function getCachedTrack(
       platform: Platform;
       external_id: string;
       country: string | null;
+      locale: string | null;
       title: string;
       artist: string;
       cover_url: string;
@@ -45,6 +47,7 @@ export async function getCachedTrack(
       platform: row.platform,
       externalId: row.external_id,
       country: row.country,
+      locale: row.locale,
       title: row.title,
       artist: row.artist,
       coverUrl: row.cover_url,
@@ -64,16 +67,17 @@ export async function setCachedTrack(
   try {
     await sql`
       INSERT INTO tracks
-        (cache_key, platform, external_id, country, title, artist, cover_url, source_url, hit_count, last_hit_at)
+        (cache_key, platform, external_id, country, locale, title, artist, cover_url, source_url, hit_count, last_hit_at)
       VALUES
         (${cacheKey}, ${track.platform}, ${track.externalId}, ${track.country},
-         ${track.title}, ${track.artist}, ${track.coverUrl}, ${track.sourceUrl},
-         1, NOW())
+         ${track.locale}, ${track.title}, ${track.artist}, ${track.coverUrl},
+         ${track.sourceUrl}, 1, NOW())
       ON CONFLICT (cache_key) DO UPDATE SET
         title = EXCLUDED.title,
         artist = EXCLUDED.artist,
         cover_url = EXCLUDED.cover_url,
         source_url = EXCLUDED.source_url,
+        locale = EXCLUDED.locale,
         last_refreshed = NOW(),
         hit_count = tracks.hit_count + 1,
         last_hit_at = NOW()
