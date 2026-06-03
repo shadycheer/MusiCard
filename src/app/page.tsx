@@ -31,10 +31,20 @@ function sanitizeFilename(title: string, platform: Platform): string {
   return `${prefix}-${cleaned || 'track'}.png`;
 }
 
-function downloadDataUrl(dataUrl: string, filename: string): void {
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob returned null'))),
+      'image/png',
+    );
+  });
+}
+
+function triggerDownload(url: string, filename: string): void {
   const a = document.createElement('a');
-  a.href = dataUrl;
+  a.href = url;
   a.download = filename;
+  // Safari needs the element in DOM for .click() to register.
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -46,6 +56,7 @@ export default function Page() {
   const [qrSvg, setQrSvg] = useState<string>('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportedUrl, setExportedUrl] = useState<string | null>(null);
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [manualText, setManualText] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
@@ -85,6 +96,10 @@ export default function Page() {
       setLyricsState({ kind: 'idle' });
       setManualText('');
       setSelectedIndices([]);
+      setExportedUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       return;
     }
     setSelectedIndices([]);
@@ -107,6 +122,14 @@ export default function Page() {
 
     return () => ctrl.abort();
   }, [state]);
+
+  // Final cleanup of any lingering Blob URL on unmount.
+  useEffect(() => {
+    return () => {
+      if (exportedUrl) URL.revokeObjectURL(exportedUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleLyric = (idx: number) => {
     setSelectedIndices((prev) => {
@@ -131,10 +154,21 @@ export default function Page() {
         lyrics: selectedLyricLines,
         targetWidth: 1920,
       });
-      downloadDataUrl(
-        canvas.toDataURL('image/png'),
-        sanitizeFilename(state.track.title, state.track.platform),
-      );
+
+      const blob = await canvasToBlob(canvas);
+      const url = URL.createObjectURL(blob);
+      const filename = sanitizeFilename(state.track.title, state.track.platform);
+
+      // Desktop + modern Safari: this saves the file.
+      // In-app browsers (WeChat, Weibo) silently ignore the download attr —
+      // for them, the inline preview below is the actual export path.
+      triggerDownload(url, filename);
+
+      setExportedUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+
       recordEvent('export');
     } catch (err) {
       setExportError(err instanceof Error ? err.message : '导出失败');
@@ -205,6 +239,19 @@ export default function Page() {
         </button>
 
         {exportError && <p className={styles.errorText}>{exportError}</p>}
+
+        {exportedUrl && (
+          <div className={styles.exportResult}>
+            <p className={styles.exportHint}>
+              桌面端已自动下载。手机端 <strong>长按图片</strong> 保存到相册。
+            </p>
+            <img
+              className={styles.exportImage}
+              src={exportedUrl}
+              alt="生成的分享卡"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

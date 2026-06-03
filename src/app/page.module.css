@@ -93,3 +93,38 @@
   color: #1ED760;
   border: 1px solid #1ED760;
 }
+
+.exportResult {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  background: #1a1a1a;
+  border-radius: 12px;
+  border: 1px solid #2a2a2a;
+}
+
+.exportHint {
+  margin: 0;
+  font-size: 13px;
+  color: #b3b3b3;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.exportHint strong {
+  color: #1ED760;
+  font-weight: 600;
+}
+
+.exportImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: block;
+  /* iOS Safari: allow long-press → save-image gesture */
+  -webkit-touch-callout: default;
+  user-select: auto;
+}
