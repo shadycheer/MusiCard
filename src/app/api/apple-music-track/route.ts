@@ -1,19 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedTrack, setCachedTrack, type CachedTrack } from '@/lib/db';
-
-const ENDPOINT = 'https://itunes.apple.com/lookup';
-
-type ItunesResult = {
-  trackName: string;
-  artistName: string;
-  artworkUrl100: string;
-  trackViewUrl?: string;
-};
-
-type ItunesResponse = {
-  resultCount: number;
-  results: ItunesResult[];
-};
+import { fetchAppleMusicTrack } from '@/lib/upstream';
 
 export async function GET(request: NextRequest) {
   const trackId = request.nextUrl.searchParams.get('id');
@@ -33,43 +20,19 @@ export async function GET(request: NextRequest) {
   if (cached) return NextResponse.json(toResponse(cached));
 
   try {
-    const apiUrl = `${ENDPOINT}?id=${trackId}&country=${country}&entity=song`;
-    const res = await fetch(apiUrl);
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `iTunes returned ${res.status}` },
-        { status: res.status },
-      );
-    }
-    const data = (await res.json()) as ItunesResponse;
-    const item = data.results?.[0];
-    if (!data.resultCount || !item) {
-      return NextResponse.json({ error: 'track not found' }, { status: 404 });
-    }
-
-    const coverUrl = item.artworkUrl100.replace(
-      /\/\d+x\d+bb\.(jpg|png)$/,
-      '/600x600bb.$1',
-    );
-
+    const upstream = await fetchAppleMusicTrack(trackId, country, sourceUrl);
     const fresh: CachedTrack = {
       platform: 'appleMusic',
       externalId: trackId,
       country,
-      locale: null,
-      title: item.trackName,
-      artist: item.artistName,
-      coverUrl,
-      sourceUrl: item.trackViewUrl ?? sourceUrl,
+      ...upstream,
     };
-
     void setCachedTrack(cacheKey, fresh);
     return NextResponse.json(toResponse(fresh));
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'unknown error' },
-      { status: 500 },
-    );
+    const msg = err instanceof Error ? err.message : 'unknown error';
+    const status = msg === 'track not found' ? 404 : 500;
+    return NextResponse.json({ error: msg }, { status });
   }
 }
 

@@ -59,6 +59,69 @@ export async function getCachedTrack(
   }
 }
 
+export type RefreshCandidate = {
+  cacheKey: string;
+  platform: Platform;
+  externalId: string;
+  country: string | null;
+  locale: string | null;
+};
+
+/** Picks tracks that were popular recently but haven't been refreshed in a while.
+ *  Cron consumes this to keep hot data fresh without re-fetching cold rows. */
+export async function listRefreshCandidates(limit: number): Promise<RefreshCandidate[]> {
+  if (!sql) return [];
+  try {
+    const rows = (await sql`
+      SELECT cache_key, platform, external_id, country, locale
+      FROM tracks
+      WHERE last_hit_at > NOW() - INTERVAL '14 days'
+        AND last_refreshed < NOW() - INTERVAL '7 days'
+      ORDER BY hit_count DESC
+      LIMIT ${limit}
+    `) as Array<{
+      cache_key: string;
+      platform: Platform;
+      external_id: string;
+      country: string | null;
+      locale: string | null;
+    }>;
+    return rows.map((r) => ({
+      cacheKey: r.cache_key,
+      platform: r.platform,
+      externalId: r.external_id,
+      country: r.country,
+      locale: r.locale,
+    }));
+  } catch (err) {
+    console.error('[db] listRefreshCandidates failed:', err);
+    return [];
+  }
+}
+
+/** Update metadata for an existing cached track without touching hit_count.
+ *  Used by the cron refresher — the row was already counted when first cached. */
+export async function updateCachedTrack(
+  cacheKey: string,
+  track: CachedTrack,
+): Promise<void> {
+  if (!sql) return;
+  try {
+    await sql`
+      UPDATE tracks SET
+        title = ${track.title},
+        artist = ${track.artist},
+        cover_url = ${track.coverUrl},
+        source_url = ${track.sourceUrl},
+        locale = ${track.locale},
+        last_refreshed = NOW()
+      WHERE cache_key = ${cacheKey}
+    `;
+  } catch (err) {
+    console.error('[db] updateCachedTrack failed:', err);
+  }
+}
+
 export async function setCachedTrack(
   cacheKey: string,
   track: CachedTrack,
