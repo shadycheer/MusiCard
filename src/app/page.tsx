@@ -278,10 +278,6 @@ export default function Page() {
 
         {exportedUrl && (
           <div className={styles.exportResult}>
-            <p className={styles.exportHint}>
-              手机端通过 <strong>分享菜单</strong> 选「保存到相册」，或
-              <strong>长按图片</strong> 手动保存。桌面端已自动下载。
-            </p>
             <img
               className={styles.exportImage}
               src={exportedUrl}
