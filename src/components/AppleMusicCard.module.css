@@ -152,9 +152,9 @@
 
 .brandLockup {
   display: block;
-  height: calc(22px * var(--s, 1));
-  /* Auto width — SVG keeps its 83/20 aspect ratio (≈ 91px wide at 22h) */
+  height: calc(18px * var(--s, 1));
   flex-shrink: 0;
+  opacity: 0.92;
 }
 
 .brandLockup svg {

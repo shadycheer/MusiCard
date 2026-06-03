@@ -181,7 +181,8 @@ const AM = {
   lyricSize: 15,
   lyricLineHeight: 21,
   lyricGap: 10,
-  brandLockupHeight: 22,
+  brandLockupHeight: 18,
+  brandLockupOpacity: 0.92,
   qrSize: 44,
   qrPad: 3,
   qrRadius: 8,
@@ -337,7 +338,10 @@ async function renderAppleMusic(opts: RenderOpts): Promise<HTMLCanvasElement> {
 
   const lockupH = AM.brandLockupHeight;
   const lockupW = lockupH * APPLE_LOCKUP_RATIO;
+  ctx.save();
+  ctx.globalAlpha = AM.brandLockupOpacity;
   ctx.drawImage(lockupImg, AM.paddingX, footCenterY - lockupH / 2, lockupW, lockupH);
+  ctx.restore();
 
   const qrX = BASE_W - AM.paddingX - AM.qrSize;
   const qrY = footCenterY - AM.qrSize / 2;
