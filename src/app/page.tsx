@@ -44,7 +44,6 @@ function triggerDownload(url: string, filename: string): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
-  // Safari needs the element in DOM for .click() to register.
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -55,30 +54,26 @@ function isMobileUA(): boolean {
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
-/** Attempt the Web Share API with a file payload. On mobile this opens the
- *  native share sheet which includes "Save to Photos" / "保存到相册".
- *  Returns true if share completed (or was cancelled by user), false if
- *  the API isn't usable and the caller should fall back to download. */
-async function tryShareFile(blob: Blob, filename: string): Promise<boolean> {
-  if (typeof navigator === 'undefined') return false;
-  if (typeof navigator.share !== 'function') return false;
+type ShareResult = 'ok' | 'cancelled' | 'unsupported';
+
+async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> {
+  if (typeof navigator === 'undefined') return 'unsupported';
+  if (typeof navigator.share !== 'function') return 'unsupported';
 
   const file = new File([blob], filename, { type: 'image/png' });
   if (
     typeof navigator.canShare !== 'function' ||
     !navigator.canShare({ files: [file] })
   ) {
-    return false;
+    return 'unsupported';
   }
 
   try {
     await navigator.share({ files: [file] });
-    return true;
+    return 'ok';
   } catch (err) {
-    // User dismissed the share sheet — they made a choice, don't fall back.
-    if (err instanceof Error && err.name === 'AbortError') return true;
-    // Any other error → caller falls back to download path.
-    return false;
+    if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
+    return 'unsupported';
   }
 }
 
@@ -88,10 +83,16 @@ export default function Page() {
   const [qrSvg, setQrSvg] = useState<string>('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [exportedUrl, setExportedUrl] = useState<string | null>(null);
+  const [fallbackImageUrl, setFallbackImageUrl] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [manualText, setManualText] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+
+  // Defer UA check to client-side to avoid hydration mismatch.
+  useEffect(() => {
+    setIsMobile(isMobileUA());
+  }, []);
 
   const lyricLines = useMemo(() => {
     if (lyricsState.kind === 'found' && lyricsState.lines.length > 0) {
@@ -128,10 +129,6 @@ export default function Page() {
       setLyricsState({ kind: 'idle' });
       setManualText('');
       setSelectedIndices([]);
-      setExportedUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
       return;
     }
     setSelectedIndices([]);
@@ -155,10 +152,9 @@ export default function Page() {
     return () => ctrl.abort();
   }, [state]);
 
-  // Final cleanup of any lingering Blob URL on unmount.
   useEffect(() => {
     return () => {
-      if (exportedUrl) URL.revokeObjectURL(exportedUrl);
+      if (fallbackImageUrl) URL.revokeObjectURL(fallbackImageUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -172,7 +168,14 @@ export default function Page() {
     });
   };
 
-  const handleDownload = async () => {
+  const closeFallback = () => {
+    setFallbackImageUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const handleExport = async () => {
     if (state.kind !== 'success' || !qrSvg) return;
     setExporting(true);
     setExportError(null);
@@ -190,20 +193,23 @@ export default function Page() {
       const blob = await canvasToBlob(canvas);
       const filename = sanitizeFilename(state.track.title, state.track.platform);
 
-      // Mobile: try Web Share API → system share sheet → "Save to Photos".
-      // The image goes straight to the camera roll, one tap.
-      const shared = isMobileUA() && (await tryShareFile(blob, filename));
-
-      // Either way, expose the result inline so the user has a fallback path
-      // (long-press save) if the share sheet was dismissed or unsupported.
-      const url = URL.createObjectURL(blob);
-      setExportedUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
-
-      // Desktop path: also trigger auto-download into Downloads folder.
-      if (!shared) triggerDownload(url, filename);
+      if (isMobile) {
+        const result = await tryShareFile(blob, filename);
+        if (result === 'unsupported') {
+          // No native share path → show the modal so user can long-press save.
+          const url = URL.createObjectURL(blob);
+          setFallbackImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+          });
+        }
+        // 'ok' / 'cancelled' → user already made a choice, no extra UI.
+      } else {
+        // Desktop: just trigger download.
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, filename);
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
 
       recordEvent('export');
     } catch (err) {
@@ -269,23 +275,42 @@ export default function Page() {
         <button
           className={styles.button}
           disabled={state.kind !== 'success' || !qrSvg || exporting}
-          onClick={handleDownload}
+          onClick={handleExport}
         >
-          {exporting ? '导出中…' : '下载图片'}
+          {exporting ? '导出中…' : isMobile ? '保存到相册' : '下载图片'}
         </button>
 
         {exportError && <p className={styles.errorText}>{exportError}</p>}
+      </div>
 
-        {exportedUrl && (
-          <div className={styles.exportResult}>
+      {fallbackImageUrl && (
+        <div
+          className={styles.modalBackdrop}
+          onClick={closeFallback}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={styles.modalContent}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.modalClose}
+              onClick={closeFallback}
+              aria-label="关闭"
+            >
+              ✕
+            </button>
+            <p className={styles.modalHint}>长按图片保存到相册</p>
             <img
-              className={styles.exportImage}
-              src={exportedUrl}
+              className={styles.modalImage}
+              src={fallbackImageUrl}
               alt="生成的分享卡"
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
