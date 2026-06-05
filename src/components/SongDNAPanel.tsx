@@ -439,9 +439,17 @@ function Citations({
   citations: Citation[];
   numberOf: (url: string) => number;
 }) {
+  // The model sometimes attaches the same URL multiple times to the same
+  // fact/paragraph — dedupe so we render each source's superscript once.
+  const seen = new Set<string>();
+  const unique = citations.filter((c) => {
+    if (seen.has(c.url)) return false;
+    seen.add(c.url);
+    return true;
+  });
   return (
     <>
-      {citations.map((c) => (
+      {unique.map((c) => (
         <CitationRef key={c.url} number={numberOf(c.url)} citation={c} />
       ))}
     </>
