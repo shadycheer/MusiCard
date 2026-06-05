@@ -1,0 +1,76 @@
+/* Numbered citation badge with click-to-open popover.
+   Matches the dark editorial aesthetic used by SongDNAPanel. */
+
+.wrap {
+  position: relative;
+  display: inline-block;
+  margin-left: 2px;
+}
+
+.badge {
+  background: transparent;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  transition: color 0.15s ease;
+}
+
+.badge:hover {
+  color: var(--text);
+}
+
+.popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(20, 20, 22, 0.98);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+  text-align: left;
+}
+
+.title {
+  font-family: var(--font-ui-stack);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.excerpt {
+  font-family: var(--font-ui-stack);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+.link {
+  margin-top: 2px;
+  align-self: flex-start;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .popover {
+    width: 220px;
+  }
+}
