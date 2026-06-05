@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import type { Platform } from './musicUrl';
+import type { SongDnaPayload } from './songDnaTypes';
 
 // All helpers fail open: missing DATABASE_URL or query errors return null/skip.
 // The app degrades to direct upstream calls, never crashes on DB issues.
@@ -150,9 +151,11 @@ export async function setCachedTrack(
   }
 }
 
+export type LyricsSource = 'lrclib' | 'lrclib-miss' | 'ai' | 'ai-miss';
+
 export type CachedLyrics = {
   lines: string[];
-  source: 'lrclib' | 'lrclib-miss';
+  source: LyricsSource;
 };
 
 export function lyricsCacheKey(title: string, artist: string): string {
@@ -166,7 +169,7 @@ export async function getCachedLyrics(
   try {
     const rows = (await sql`
       SELECT lines, source FROM lyrics WHERE cache_key = ${cacheKey} LIMIT 1
-    `) as Array<{ lines: string[]; source: 'lrclib' | 'lrclib-miss' }>;
+    `) as Array<{ lines: string[]; source: LyricsSource }>;
     const row = rows[0];
     if (!row) return null;
     return { lines: row.lines, source: row.source };
@@ -181,7 +184,7 @@ export async function setCachedLyrics(
   title: string,
   artist: string,
   lines: string[],
-  source: 'lrclib' | 'lrclib-miss',
+  source: LyricsSource,
 ): Promise<void> {
   if (!sql) return;
   try {
@@ -235,5 +238,79 @@ export async function recordExport(): Promise<void> {
     `;
   } catch (err) {
     console.error('[db] recordExport failed:', err);
+  }
+}
+
+// ─── Song DNA cache ────────────────────────────────────────────────────
+
+export type CachedSongDna = {
+  payload: SongDnaPayload;
+  model: string;
+  cachedAt: string;      // ISO timestamp
+};
+
+export function songDnaCacheKey(title: string, artist: string): string {
+  return `songdna:${title.toLowerCase().trim()}|${artist.toLowerCase().trim()}`;
+}
+
+export async function getCachedSongDna(
+  cacheKey: string,
+): Promise<CachedSongDna | null> {
+  if (!sql) return null;
+  try {
+    const rows = (await sql`
+      SELECT payload, model, cached_at
+      FROM song_dna
+      WHERE cache_key = ${cacheKey}
+      LIMIT 1
+    `) as Array<{ payload: SongDnaPayload; model: string; cached_at: string }>;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      payload: row.payload,
+      model: row.model,
+      cachedAt: row.cached_at,
+    };
+  } catch (err) {
+    console.error('[db] getCachedSongDna failed:', err);
+    return null;
+  }
+}
+
+export async function setCachedSongDna(
+  cacheKey: string,
+  title: string,
+  artist: string,
+  payload: SongDnaPayload,
+  model: string,
+): Promise<void> {
+  if (!sql) return;
+  try {
+    await sql`
+      INSERT INTO song_dna (cache_key, title, artist, payload, has_data, model, hit_count, last_hit_at)
+      VALUES (${cacheKey}, ${title}, ${artist}, ${JSON.stringify(payload)}, ${payload.hasData}, ${model}, 1, NOW())
+      ON CONFLICT (cache_key) DO UPDATE SET
+        payload = EXCLUDED.payload,
+        has_data = EXCLUDED.has_data,
+        model = EXCLUDED.model,
+        cached_at = NOW(),
+        hit_count = song_dna.hit_count + 1,
+        last_hit_at = NOW()
+    `;
+  } catch (err) {
+    console.error('[db] setCachedSongDna failed:', err);
+  }
+}
+
+export async function incrementSongDnaHit(cacheKey: string): Promise<void> {
+  if (!sql) return;
+  try {
+    await sql`
+      UPDATE song_dna
+      SET hit_count = hit_count + 1, last_hit_at = NOW()
+      WHERE cache_key = ${cacheKey}
+    `;
+  } catch (err) {
+    console.error('[db] incrementSongDnaHit failed:', err);
   }
 }
