@@ -1,9 +1,9 @@
-/* SongDNA panel — dark theme, reads as a single editorial paragraph after
-   the user taps "Read this song". */
+/* SongDNA panel — dark editorial layout with 4 dimension blocks, citation
+   superscripts, magazine-style figures, and a real-time AI status line. */
 
 .idle,
 .loading,
-.essay,
+.found,
 .empty,
 .error {
   display: flex;
@@ -12,6 +12,8 @@
   font-family: var(--font-ui-stack);
   color: var(--text);
 }
+
+/* ─── Idle ──────────────────────────────────────────────────── */
 
 .idleHint {
   margin: 0;
@@ -31,9 +33,7 @@
   border: none;
   border-radius: 999px;
   cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow:
     0 6px 16px rgba(255, 255, 255, 0.1),
     0 1px 0 rgba(255, 255, 255, 0.6) inset;
@@ -46,6 +46,8 @@
     0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
+/* ─── Loading thinking line ─────────────────────────────────── */
+
 .loading {
   flex-direction: row;
   align-items: center;
@@ -53,69 +55,205 @@
   padding: 10px 0;
 }
 
+.loadingPulse {
+  display: inline-flex;
+  gap: 4px;
+}
+
 .loadingDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--text);
   animation: pulse 1.4s ease-in-out infinite;
 }
+.loadingDot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.loadingDot:nth-child(3) {
+  animation-delay: 0.36s;
+}
 
 @keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.35;
+  0%, 100% {
+    opacity: 0.3;
     transform: scale(0.85);
   }
   50% {
     opacity: 1;
-    transform: scale(1.08);
+    transform: scale(1.1);
   }
 }
 
 .loadingText {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-mute);
+  animation: textFadeIn 280ms ease-out;
 }
 
-.essay {
-  gap: 18px;
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.credits {
-  margin: 0;
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 18px;
-  row-gap: 10px;
-  padding: 14px 0;
-  border-top: 1px solid var(--hairline);
+/* ─── Cache meta strip ──────────────────────────────────────── */
+
+.cacheMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.cacheTag {
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.cacheTime {
+  flex: 1;
+}
+
+.refreshButton,
+.refreshGhost {
+  background: transparent;
+  border: none;
+  color: var(--text-mute);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 999px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.refreshButton:hover,
+.refreshGhost:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.refreshGhost {
+  align-self: flex-end;
+  margin-top: 8px;
+}
+
+/* ─── Section (a single dimension) ──────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 22px;
   border-bottom: 1px solid var(--hairline);
 }
 
-.creditRow {
-  display: contents;
+.section:last-of-type {
+  border-bottom: none;
 }
 
-.creditLabel {
-  margin: 0;
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sectionKicker {
   font-family: var(--font-mono-stack);
   font-size: 11px;
   letter-spacing: 0.14em;
   color: var(--text-faint);
-  text-transform: uppercase;
-  align-self: center;
 }
 
-.creditValue {
+.sectionTitle {
   margin: 0;
-  font-family: var(--font-ui-stack);
   font-size: 14px;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: -0.005em;
 }
 
-.story {
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ─── Fact list ─────────────────────────────────────────────── */
+
+.factList {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 16px;
+  row-gap: 8px;
+}
+
+.factRow {
+  display: contents;
+}
+
+.factLabel {
+  margin: 0;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  align-self: start;
+  padding-top: 1px;
+}
+
+.factValue {
+  margin: 0;
+  font-family: var(--font-ui-stack);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+  letter-spacing: -0.005em;
+}
+
+.bulletList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ─── Paragraph block ───────────────────────────────────────── */
+
+.paragraphBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paragraphLabel {
+  margin: 0;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.paragraphText {
   margin: 0;
   font-family: var(--font-ui-stack);
   font-size: 14.5px;
@@ -124,34 +262,62 @@
   letter-spacing: -0.005em;
 }
 
-.sources {
-  margin: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--hairline);
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
-  line-height: 1.6;
+.paragraphSources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
 }
 
-.regenerate {
-  align-self: flex-end;
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
+.paragraphSourcesLabel {
   font-family: var(--font-mono-stack);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--text-faint);
-  cursor: pointer;
-  transition: color 0.2s ease;
   text-transform: uppercase;
+  margin-right: 4px;
 }
 
-.regenerate:hover {
+/* ─── Figure ────────────────────────────────────────────────── */
+
+.figure {
+  margin: 6px 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.figure img {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.figure figcaption {
+  font-family: var(--font-ui-stack);
+  font-size: 12px;
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+.figureSource {
+  align-self: flex-start;
+  font-family: var(--font-mono-stack);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  text-decoration: none;
+}
+
+.figureSource:hover {
   color: var(--text);
 }
+
+/* ─── Empty / Error ─────────────────────────────────────────── */
 
 .empty,
 .error {
@@ -179,14 +345,21 @@
   font-size: 12px;
   color: var(--text-soft);
   cursor: pointer;
-  transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .retryGhost:hover {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 720px) {
+  .factList {
+    grid-template-columns: 80px 1fr;
+    column-gap: 12px;
+  }
+  .paragraphText {
+    font-size: 14px;
+  }
 }
