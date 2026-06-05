@@ -1,4 +1,4 @@
-export type Platform = 'spotify' | 'appleMusic';
+export type Platform = 'spotify' | 'appleMusic' | 'netease';
 
 export type ParseResult =
   | {
@@ -16,6 +16,16 @@ const SPOTIFY_TRACK_REGEX =
   /^https:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?track\/([A-Za-z0-9]{22})(?:\?.*)?$/;
 const SPOTIFY_NON_TRACK_REGEX =
   /^https:\/\/open\.spotify\.com\/(?:intl-[a-z]+\/)?(album|playlist|episode|artist|show)\//;
+
+// NetEase share URL shapes — hash route (desktop), query route (mobile),
+// /m/song path (mobile web), and 163cn.tv short links (WeChat sharing).
+const NETEASE_TRACK_REGEXES: RegExp[] = [
+  /^https?:\/\/music\.163\.com\/(?:#\/)?song\?[^ ]*\bid=(\d+)/,
+  /^https?:\/\/music\.163\.com\/song\/(\d+)(?:\/|\?|$)/,
+  /^https?:\/\/y\.music\.163\.com\/m\/song\?[^ ]*\bid=(\d+)/,
+];
+const NETEASE_NON_TRACK_REGEX =
+  /^https?:\/\/music\.163\.com\/(?:#\/)?(album|playlist|artist|mv|dj|djradio|user)(?:\/|\?)/;
 
 export function parseMusicUrl(input: string): ParseResult {
   const trimmed = input.trim();
@@ -51,7 +61,48 @@ export function parseMusicUrl(input: string): ParseResult {
   const appleNon = detectAppleMusicNonTrack(trimmed);
   if (appleNon) return { kind: 'non-track', type: appleNon };
 
+  const neteaseTrack = parseNeteaseTrack(trimmed);
+  if (neteaseTrack) {
+    return {
+      kind: 'ok',
+      platform: 'netease',
+      canonicalUrl: neteaseTrack.canonicalUrl,
+      cacheKey: `netease:${neteaseTrack.trackId}`,
+      externalId: neteaseTrack.trackId,
+      country: null,
+    };
+  }
+  const neteaseNon = trimmed.match(NETEASE_NON_TRACK_REGEX);
+  if (neteaseNon) return { kind: 'non-track', type: neteaseNon[1] };
+
   return { kind: 'invalid' };
+}
+
+function parseNeteaseTrack(
+  url: string,
+): { canonicalUrl: string; trackId: string } | null {
+  for (const re of NETEASE_TRACK_REGEXES) {
+    const m = url.match(re);
+    if (m) {
+      return {
+        canonicalUrl: `https://music.163.com/song?id=${m[1]}`,
+        trackId: m[1],
+      };
+    }
+  }
+  return null;
+}
+
+/** Resolve a 163cn.tv short link by following the redirect. NetEase share
+ *  sheet emits these for WeChat — they 302 to a normal music.163.com URL. */
+export async function resolveNeteaseShortLink(url: string): Promise<string | null> {
+  if (!/^https?:\/\/163cn\.tv\//.test(url)) return null;
+  try {
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow' });
+    return res.url || null;
+  } catch {
+    return null;
+  }
 }
 
 function parseSpotifyTrack(

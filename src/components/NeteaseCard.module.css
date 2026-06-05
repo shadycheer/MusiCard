@@ -1,0 +1,277 @@
+/* NetEase Cloud Music share card — vinyl-record aesthetic matching the
+   desktop client's "now playing" page. Three concentric layers:
+     1. vinylHalo  — soft gray outer ring (the lifted-disc glow)
+     2. vinyl      — black disc body, dense grooves, specular sweep
+     3. labelOuter/labelInner — thick white frame around the cover
+   Cover-derived background, minimal typography, undecorated lyrics. */
+
+.card {
+  width: calc(320px * var(--s, 1));
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16px * var(--s, 1)) calc(16px * var(--s, 1)) calc(20px * var(--s, 1));
+  gap: calc(20px * var(--s, 1));
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: var(--font-spotify), -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  position: relative;
+  background:
+    linear-gradient(
+      170deg,
+      var(--nt-primary, #3a3a3a) 0%,
+      var(--nt-secondary, #1a1a1a) 55%,
+      #0a0a0a 100%
+    );
+  box-shadow: 0 calc(20px * var(--s, 1)) calc(48px * var(--s, 1)) rgba(0, 0, 0, 0.5);
+}
+
+/* Red top hairline — single brand anchor. */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(2px * var(--s, 1));
+  background: linear-gradient(90deg, transparent, #ec4141 25%, #ec4141 75%, transparent);
+  z-index: 1;
+}
+
+/* ─── Vinyl stage ──────────────────────────────────────────────────── */
+
+.vinylStage {
+  position: relative;
+  width: 84%;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+
+/* ─── Outer halo — the soft pale-gray ring that makes the disc "float". ─ */
+
+.vinylHalo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ─── Disc body ────────────────────────────────────────────────────── */
+
+.vinyl {
+  position: absolute;
+  inset: 7%;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #1c1c1c 0%, #080808 100%);
+  box-shadow:
+    0 calc(8px * var(--s, 1)) calc(24px * var(--s, 1)) rgba(0, 0, 0, 0.55),
+    inset 0 0 calc(12px * var(--s, 1)) rgba(0, 0, 0, 0.6);
+}
+
+/* Crisp 1px ring along the disc's outer edge — the lit lip of pressed vinyl. */
+.vinyl::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: calc(1px * var(--s, 1)) solid rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+/* Concentric grooves with alternating thicker / thinner bands — the
+   "track group" rhythm of real vinyl, not regular equal-spaced lines.
+   Period: 6px containing two highlights of different opacity. */
+.vinylGrooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.04) 0px,
+    rgba(255, 255, 255, 0.04) 0.5px,
+    transparent 0.5px,
+    transparent 2px,
+    rgba(255, 255, 255, 0.07) 2px,
+    rgba(255, 255, 255, 0.07) 2.5px,
+    transparent 2.5px,
+    transparent 6px
+  );
+  -webkit-mask: radial-gradient(circle at center, transparent 31%, #000 32%);
+  mask: radial-gradient(circle at center, transparent 31%, #000 32%);
+}
+
+/* Diagonal specular reflection — broad soft band across the upper-left half. */
+.vinylShine {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    115deg,
+    transparent 28%,
+    rgba(255, 255, 255, 0.05) 42%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.05) 58%,
+    transparent 72%
+  );
+  -webkit-mask: radial-gradient(circle at center, transparent 31%, #000 32%);
+  mask: radial-gradient(circle at center, transparent 31%, #000 32%);
+  pointer-events: none;
+}
+
+/* ─── Label — cover fills the whole circle, with two hairlines bracketing
+   the disc/cover boundary. No solid white frame; the visual "paper edge"
+   comes from one inner crisp white highlight + one outer soft halo, the
+   way it actually reads in the reference photo. ───────────────────── */
+
+.label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 62%;
+  height: 62%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1a1a1a;
+  box-shadow:
+    /* outer soft white halo against the black disc */
+    0 0 0 calc(1px * var(--s, 1)) rgba(255, 255, 255, 0.55),
+    /* outermost ultra-thin glow */
+    0 0 0 calc(2px * var(--s, 1)) rgba(255, 255, 255, 0.15),
+    /* drop shadow lifts the label off the grooves */
+    0 calc(3px * var(--s, 1)) calc(8px * var(--s, 1)) rgba(0, 0, 0, 0.4);
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Info ─────────────────────────────────────────────────────────── */
+
+.info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--s, 1));
+  text-align: center;
+  padding: 0 calc(8px * var(--s, 1));
+  position: relative;
+  z-index: 1;
+}
+
+.title {
+  font-size: calc(22px * var(--s, 1));
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: calc(-0.2px * var(--s, 1));
+  color: #ffffff;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  max-width: 100%;
+  text-shadow: 0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.25);
+}
+
+.artist {
+  font-size: calc(13px * var(--s, 1));
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.62);
+  margin: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ─── Lyrics — minimal, undecorated, centered. Topped by a short hairline
+   that acts as a "section break", deliberately different from the Spotify
+   card's left-rule block. The vibe is "poetic strip", not "code block". ── */
+
+.lyrics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(4px * var(--s, 1));
+  padding: calc(16px * var(--s, 1)) calc(8px * var(--s, 1)) calc(4px * var(--s, 1));
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.lyrics::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(24px * var(--s, 1));
+  height: calc(1px * var(--s, 1));
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.lyricLine {
+  font-size: calc(14px * var(--s, 1));
+  font-weight: 400;
+  line-height: 1.7;
+  letter-spacing: calc(0.3px * var(--s, 1));
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  max-width: 100%;
+  text-shadow: 0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Foot: brand lockup + QR ──────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s, 1));
+  padding-top: calc(2px * var(--s, 1));
+  position: relative;
+  z-index: 1;
+}
+
+.brandLogo {
+  height: calc(18px * var(--s, 1));
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.qr {
+  width: calc(44px * var(--s, 1));
+  height: calc(44px * var(--s, 1));
+  flex-shrink: 0;
+  background: #ffffff;
+  border-radius: calc(4px * var(--s, 1));
+  padding: calc(3px * var(--s, 1));
+  box-sizing: border-box;
+  box-shadow: 0 calc(2px * var(--s, 1)) calc(6px * var(--s, 1)) rgba(0, 0, 0, 0.3);
+}
+
+.qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

@@ -18,6 +18,13 @@ const ALLOWED_HOSTS = new Set([
   'a5.mzstatic.com',
 ]);
 
+// NetEase image CDN uses pN.music.126.net where N varies — match by suffix.
+function isAllowedHost(hostname: string): boolean {
+  if (ALLOWED_HOSTS.has(hostname)) return true;
+  if (/^p\d+\.music\.126\.net$/.test(hostname)) return true;
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   const target = request.nextUrl.searchParams.get('url');
   if (!target) {
@@ -33,15 +40,21 @@ export async function GET(request: NextRequest) {
   if (parsed.protocol !== 'https:') {
     return NextResponse.json({ error: 'https only' }, { status: 400 });
   }
-  if (!ALLOWED_HOSTS.has(parsed.hostname)) {
+  if (!isAllowedHost(parsed.hostname)) {
     return NextResponse.json(
       { error: `host not allowed: ${parsed.hostname}` },
       { status: 400 },
     );
   }
 
+  const isNetEase = parsed.hostname.endsWith('.music.126.net');
+
   try {
-    const upstream = await fetch(parsed.toString(), { cache: 'force-cache' });
+    const upstream = await fetch(parsed.toString(), {
+      cache: 'force-cache',
+      // NetEase image CDN rejects requests with no/foreign Referer.
+      headers: isNetEase ? { Referer: 'https://music.163.com/' } : undefined,
+    });
     if (!upstream.ok) {
       return NextResponse.json(
         { error: `upstream returned ${upstream.status}` },

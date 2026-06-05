@@ -15,3 +15,12 @@ tsconfig.tsbuildinfo
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Debug screenshots / snapshots from chrome-devtools MCP sessions
+.netease-*.png
+.netease-*.txt
+.v2-*.png
+.v2-*.txt
+.layout-*.png
+.layout-*.txt
+.home-snapshot.txt

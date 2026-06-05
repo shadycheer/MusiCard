@@ -4,6 +4,7 @@
  */
 
 import type { CachedTrack } from './db';
+import { fetchSongDetailViaWeapi } from './neteaseWeapi';
 
 type UpstreamFields = Pick<
   CachedTrack,
@@ -135,5 +136,20 @@ export async function fetchAppleMusicTrack(
     artist: item.artistName,
     coverUrl,
     sourceUrl: item.trackViewUrl ?? fallbackSourceUrl,
+  };
+}
+
+/** Fetch NetEase track metadata via the community-reverse-engineered weapi
+ *  protocol. See `neteaseWeapi.ts` for protocol details and the rationale
+ *  for going around NetEase's OpenAPI (which requires per-AppId device
+ *  registration plus user OAuth even for read-only metadata). */
+export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields> {
+  const track = await fetchSongDetailViaWeapi(songId);
+  return {
+    locale: null,
+    title: track.title,
+    artist: track.artist,
+    coverUrl: track.coverUrl,
+    sourceUrl: `https://music.163.com/song?id=${songId}`,
   };
 }
