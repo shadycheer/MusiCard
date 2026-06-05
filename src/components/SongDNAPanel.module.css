@@ -1,0 +1,166 @@
+/* SongDNA panel — reads as a continuation of the music-essay column. The
+   "found" state is the headline state and gets full editorial treatment:
+   drop cap, generous leading, italic Fraunces sources line. */
+
+.idle,
+.loading,
+.essay,
+.empty,
+.error {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--font-stack-cn);
+  color: var(--ink-soft);
+}
+
+.idleHint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  font-style: italic;
+  color: var(--ink-mute);
+}
+
+.action {
+  align-self: flex-start;
+  padding: 10px 22px;
+  font-family: var(--font-stack-body);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: transparent;
+  color: var(--rust);
+  border: 1px solid var(--rust);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.action:hover {
+  background: var(--rust);
+  color: var(--paper);
+}
+
+.loading {
+  align-items: center;
+  flex-direction: row;
+  gap: 12px;
+  padding: 12px 0;
+  font-style: italic;
+}
+
+.loadingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rust);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.loadingText {
+  font-size: 14px;
+  color: var(--ink-mute);
+}
+
+.essayBody {
+  margin: 0;
+  font-family: var(--font-stack-cn);
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--ink);
+  /* Slight hanging punctuation feel — generous first-paragraph treatment. */
+  text-indent: 0;
+}
+
+.essayDropCap {
+  font-family: var(--font-stack-display);
+  font-style: italic;
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 0.85;
+  color: var(--rust);
+  float: left;
+  margin: 6px 8px 0 0;
+  padding: 0;
+}
+
+.sources {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--paper-edge);
+  font-family: var(--font-stack-body);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-mute);
+  line-height: 1.6;
+}
+
+.regenerate {
+  align-self: flex-end;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.regenerate:hover {
+  color: var(--rust);
+}
+
+.empty,
+.error {
+  padding: 12px 0;
+  font-style: italic;
+  font-size: 14px;
+}
+
+.empty p,
+.error p {
+  margin: 0;
+  color: var(--ink-mute);
+}
+
+.error p {
+  color: var(--rust-deep);
+}
+
+.retryGhost {
+  align-self: flex-start;
+  padding: 6px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--ink-mute);
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.retryGhost:hover {
+  color: var(--rust);
+  border-bottom-color: var(--rust);
+}

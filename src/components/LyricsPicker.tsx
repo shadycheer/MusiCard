@@ -32,13 +32,6 @@ export default function LyricsPicker({
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.header}>
-        <span className={styles.headerTitle}>歌词</span>
-        <span>
-          已选 {selected.length}/{maxSelected}
-        </span>
-      </div>
-
       {isLoading && <div className={styles.loading}>加载歌词中…</div>}
 
       {isManualMode && (

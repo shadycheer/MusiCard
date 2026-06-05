@@ -1,103 +1,427 @@
+/* Music-essay layout — cream paper, three-column magazine grid on desktop,
+   collapses to a thoughtful single column on phones. The share card is the
+   "cover image" in the center column; lyrics + SongDNA read as essay-side
+   continuation in the right column. */
+
 .page {
   min-height: 100vh;
-  background: #181818;
-  color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  padding: 40px 16px;
-  box-sizing: border-box;
+  color: var(--ink);
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-stack-body);
 }
 
-.container {
-  width: 100%;
-  max-width: 420px;
+/* ─── Masthead ─────────────────────────────────────────────────────── */
+
+.masthead {
+  border-bottom: 1px solid var(--paper-edge);
+  padding: 22px clamp(20px, 4vw, 64px);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.mastheadBrand {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.mastheadLogo {
+  font-family: var(--font-stack-display);
+  font-size: 26px;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.mastheadTagline {
+  font-family: var(--font-stack-cn);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-mute);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mastheadNav {
+  display: flex;
+  gap: 22px;
+  font-family: var(--font-stack-body);
+  font-size: 13px;
+}
+
+.navLink {
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  position: relative;
+}
+
+.navLink:hover {
+  color: var(--rust);
+}
+
+.navLink::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 1px;
+  background: var(--rust);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.32s ease;
+}
+
+.navLink:hover::after {
+  transform: scaleX(1);
+}
+
+/* ─── Editorial header (issue line + headline) ─────────────────────── */
+
+.editorial {
+  padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 64px) clamp(20px, 3vw, 36px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-.heading {
-  font-size: 20px;
-  font-weight: 700;
+.issueLine {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.issueLine::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--paper-edge);
+}
+
+.headline {
+  font-family: var(--font-stack-display);
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
   margin: 0;
+  color: var(--ink);
+  max-width: 28ch;
+}
+
+.headlineAccent {
+  font-style: italic;
+  color: var(--rust);
+  font-weight: 500;
+}
+
+.lede {
+  font-family: var(--font-stack-cn);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  max-width: 56ch;
+  margin: 0;
+}
+
+/* ─── Input row ─────────────────────────────────────────────────────── */
+
+.inputRow {
+  padding: 0 clamp(20px, 4vw, 64px) clamp(20px, 3vw, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputLabel {
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
 }
 
 .input {
   width: 100%;
-  padding: 12px 14px;
-  font-size: 14px;
-  background: #2a2a2a;
-  color: #fff;
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
+  padding: 16px 0;
+  font-family: var(--font-stack-body);
+  font-size: 17px;
+  background: transparent;
+  color: var(--ink);
+  border: none;
+  border-bottom: 1px solid var(--paper-edge);
   outline: none;
   box-sizing: border-box;
+  transition: border-color 0.2s ease;
 }
 
-.input:focus { border-color: #1ED760; }
+.input::placeholder {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
+.input:focus {
+  border-bottom-color: var(--rust);
+}
 
 .errorText {
-  color: #ff6b6b;
+  color: var(--rust-deep);
+  font-family: var(--font-stack-cn);
   font-size: 13px;
-  margin: -8px 0 0;
+  margin: 4px 0 0;
 }
 
-.previewWrap {
+/* ─── Three-column working area ────────────────────────────────────── */
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 2.2fr) minmax(0, 1.6fr);
+  gap: clamp(20px, 3vw, 48px);
+  padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 64px) clamp(48px, 8vw, 88px);
+  align-items: start;
+}
+
+/* Column 1 — meta sidebar (issue notes, drop cap, footnote feel) */
+.metaCol {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 24px;
+  font-family: var(--font-stack-body);
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.metaBlock {
+  border-top: 1px solid var(--paper-edge);
+  padding-top: 14px;
+}
+
+.metaLabel {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 0 6px;
+}
+
+.metaValue {
+  margin: 0;
+  font-family: var(--font-stack-cn);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.dropCap {
+  font-family: var(--font-stack-display);
+  font-size: 96px;
+  line-height: 0.85;
+  color: var(--rust);
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+
+/* Column 2 — card stage */
+.cardCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.cardStage {
+  position: relative;
   display: flex;
   justify-content: center;
-  min-height: 180px;
+  min-height: 220px;
+  width: 100%;
+}
+
+.cardFrame {
+  /* Cards drop a subtle shadow onto the paper; this frame adds a deckle-
+     edge feel so the card sits "on" the page rather than floating in space. */
+  position: relative;
+  display: inline-block;
+}
+
+.cardFrame::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px solid var(--paper-edge);
+  pointer-events: none;
+  transform: rotate(-0.6deg);
+  z-index: -1;
+}
+
+.placeholder {
+  width: 100%;
+  max-width: 360px;
+  padding: 48px 28px;
+  text-align: center;
+  border: 1px dashed var(--paper-edge);
+  border-radius: 2px;
+  font-family: var(--font-stack-cn);
+  color: var(--ink-mute);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.placeholderArrow {
+  font-family: var(--font-stack-display);
+  font-size: 28px;
+  color: var(--rust);
+  font-style: italic;
+}
+
+.placeholderHint {
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 24ch;
 }
 
 .skeleton {
   width: 320px;
-  height: 420px;
-  border-radius: 12px;
-  background: linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+  height: 460px;
+  background: linear-gradient(
+    100deg,
+    var(--paper-deep) 0%,
+    var(--paper) 40%,
+    var(--paper-deep) 80%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.4s infinite linear;
+  animation: shimmer 1.6s infinite linear;
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .errorBox {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 30px;
+  gap: 14px;
+  padding: 36px 20px;
+  font-family: var(--font-stack-cn);
+  color: var(--rust-deep);
+  text-align: center;
 }
 
 .button {
-  padding: 12px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  background: #1ED760;
-  color: #000;
+  padding: 14px 28px;
+  font-family: var(--font-stack-body);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 500;
+  background: var(--ink);
+  color: var(--paper);
   border: none;
-  border-radius: 24px;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--rust);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .button:disabled {
-  background: #2a2a2a;
-  color: #666;
+  background: transparent;
+  color: var(--ink-mute);
+  border: 1px solid var(--paper-edge);
   cursor: not-allowed;
 }
 
 .secondary {
   background: transparent;
-  color: #1ED760;
-  border: 1px solid #1ED760;
+  color: var(--rust);
+  border: 1px solid var(--rust);
 }
+
+.secondary:hover:not(:disabled) {
+  background: var(--rust);
+  color: var(--paper);
+}
+
+/* Column 3 — essay-side (lyrics + SongDNA) */
+.essayCol {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.essaySection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.essayHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--paper-edge);
+}
+
+.essayTitle {
+  font-family: var(--font-stack-display);
+  font-size: 22px;
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.essayMeta {
+  font-family: var(--font-stack-body);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* ─── Modal (fallback for mobile share that the OS doesn't support) ── */
 
 .modalBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(20, 18, 16, 0.78);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -107,54 +431,150 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modalContent {
   position: relative;
-  background: #1a1a1a;
-  border-radius: 14px;
-  padding: 44px 20px 20px;
+  background: var(--paper);
+  padding: 44px 20px 24px;
   max-width: 360px;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 14px;
+  border: 1px solid var(--paper-edge);
 }
 
 .modalClose {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   width: 32px;
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--ink-mute);
   font-size: 18px;
   cursor: pointer;
   line-height: 1;
 }
 
-.modalClose:hover { color: #fff; }
+.modalClose:hover {
+  color: var(--rust);
+}
 
 .modalHint {
   margin: 0;
-  color: #1ED760;
+  font-family: var(--font-stack-cn);
+  color: var(--rust);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   text-align: center;
 }
 
 .modalImage {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 28px rgba(20, 18, 16, 0.35);
   display: block;
-  /* iOS Safari: allow long-press → save-image gesture */
   -webkit-touch-callout: default;
   user-select: auto;
+}
+
+/* ─── Reveal animation (used by entering content blocks) ─────────────── */
+
+.reveal {
+  animation: revealUp 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────── */
+
+/* Tablet — drop meta column, keep card + essay side by side */
+@media (max-width: 1024px) {
+  .workspace {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
+  }
+  .metaCol {
+    display: none;
+  }
+}
+
+/* Phone — single column, reorder so card → lyrics → SongDNA → download */
+@media (max-width: 720px) {
+  .masthead {
+    padding: 16px 18px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mastheadBrand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .mastheadLogo {
+    font-size: 22px;
+  }
+  .mastheadTagline {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .mastheadNav {
+    gap: 14px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .editorial {
+    padding: 28px 18px 18px;
+    gap: 14px;
+  }
+  .headline {
+    font-size: 38px;
+    line-height: 1.05;
+  }
+  .lede {
+    font-size: 14px;
+  }
+  .inputRow {
+    padding: 0 18px 20px;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 12px 18px 56px;
+  }
+  .cardCol,
+  .essayCol {
+    align-items: stretch;
+  }
+  .essayCol {
+    gap: 28px;
+  }
+  .button {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 12px;
+  }
+  .essayTitle {
+    font-size: 20px;
+  }
 }

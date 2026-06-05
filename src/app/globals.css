@@ -2,10 +2,55 @@
   box-sizing: border-box;
 }
 
+:root {
+  /* Paper palette — warm cream ground for the music-essay aesthetic. */
+  --paper: #faf6ee;
+  --paper-deep: #f1e9d8;
+  --paper-edge: #e3d8be;
+  --ink: #1a1816;
+  --ink-soft: #4a4540;
+  --ink-mute: #8a8174;
+  --rust: #a8423c;
+  --rust-deep: #8d2f29;
+  --olive: #7c7e54;
+
+  --font-stack-display: var(--font-display), 'Songti SC', 'STSong', 'Source Han Serif SC',
+    serif;
+  --font-stack-body: var(--font-body), var(--font-cn), 'Songti SC', 'STSong', serif;
+  --font-stack-cn: var(--font-cn), 'Songti SC', 'STSong', 'Source Han Serif SC', serif;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #181818;
-  color: #e0e0e0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-stack-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle paper grain — laid over a fixed bg so it doesn't move on scroll. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(rgba(26, 24, 22, 0.05) 1px, transparent 1px),
+    radial-gradient(rgba(26, 24, 22, 0.04) 1px, transparent 1px);
+  background-size: 3px 3px, 7px 7px;
+  background-position: 0 0, 1px 2px;
+  mix-blend-mode: multiply;
+}
+
+/* Reduce all that paper grain to nothing for users who'd rather not see it. */
+@media (prefers-reduced-motion: reduce) {
+  body::before {
+    opacity: 0.25;
+  }
 }
