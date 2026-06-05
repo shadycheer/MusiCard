@@ -1,317 +1,230 @@
-/* Music-essay layout — cream paper, three-column magazine grid on desktop,
-   collapses to a thoughtful single column on phones. The share card is the
-   "cover image" in the center column; lyrics + SongDNA read as essay-side
-   continuation in the right column. */
+/* Hero-centric, card-as-protagonist layout.
+   Deep black ground, cover bloom behind everything, card centered as the
+   one thing on the page that has weight. Everything else fades to support. */
 
 .page {
-  min-height: 100vh;
-  color: var(--ink);
   position: relative;
   z-index: 1;
-  font-family: var(--font-stack-body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
 }
 
-/* ─── Masthead ─────────────────────────────────────────────────────── */
+/* ─── Thin top nav ─────────────────────────────────────────────────── */
 
-.masthead {
-  border-bottom: 1px solid var(--paper-edge);
-  padding: 22px clamp(20px, 4vw, 64px);
+.nav {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  padding: 18px clamp(20px, 4vw, 40px);
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+  z-index: 2;
 }
 
-.mastheadBrand {
+.navBrand {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
+  align-items: center;
+  gap: 10px;
   text-decoration: none;
-  color: inherit;
+  color: var(--text);
 }
 
-.mastheadLogo {
-  font-family: var(--font-stack-display);
-  font-size: 26px;
-  font-weight: 500;
-  font-style: italic;
-  line-height: 1;
+.navMark {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.navLogo {
+  font-family: var(--font-ui-stack);
+  font-size: 15px;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--ink);
 }
 
-.mastheadTagline {
-  font-family: var(--font-stack-cn);
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--ink-mute);
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.navTagline {
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.04em;
+  padding-left: 10px;
+  border-left: 1px solid var(--hairline);
+  margin-left: 4px;
 }
 
-.mastheadNav {
+.navRight {
   display: flex;
+  align-items: center;
   gap: 22px;
-  font-family: var(--font-stack-body);
-  font-size: 13px;
+  font-family: var(--font-mono-stack);
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .navLink {
-  color: var(--ink-soft);
+  color: var(--text-soft);
   text-decoration: none;
-  font-variant: small-caps;
-  letter-spacing: 0.08em;
-  position: relative;
+  transition: color 0.2s ease;
 }
 
 .navLink:hover {
-  color: var(--rust);
+  color: var(--text);
 }
 
-.navLink::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -3px;
-  height: 1px;
-  background: var(--rust);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.32s ease;
-}
+/* ─── Main stage ───────────────────────────────────────────────────── */
 
-.navLink:hover::after {
-  transform: scaleX(1);
-}
-
-/* ─── Editorial header (issue line + headline) ─────────────────────── */
-
-.editorial {
-  padding: clamp(28px, 5vw, 56px) clamp(20px, 4vw, 64px) clamp(20px, 3vw, 36px);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.issueLine {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--font-stack-body);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-}
-
-.issueLine::after {
-  content: '';
+.main {
   flex: 1;
-  height: 1px;
-  background: var(--paper-edge);
-}
-
-.headline {
-  font-family: var(--font-stack-display);
-  font-size: clamp(36px, 6vw, 64px);
-  font-weight: 400;
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-  margin: 0;
-  color: var(--ink);
-  max-width: 28ch;
-}
-
-.headlineAccent {
-  font-style: italic;
-  color: var(--rust);
-  font-weight: 500;
-}
-
-.lede {
-  font-family: var(--font-stack-cn);
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--ink-soft);
-  max-width: 56ch;
-  margin: 0;
-}
-
-/* ─── Input row ─────────────────────────────────────────────────────── */
-
-.inputRow {
-  padding: 0 clamp(20px, 4vw, 64px) clamp(20px, 3vw, 32px);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  padding: clamp(40px, 8vh, 90px) clamp(20px, 4vw, 40px) clamp(60px, 10vh, 120px);
+  gap: clamp(28px, 4vh, 48px);
+  width: 100%;
+  position: relative;
+}
+
+/* ─── Input ─────────────────────────────────────────────────────────── */
+
+.inputWrap {
+  width: 100%;
+  max-width: 560px;
+  position: relative;
 }
 
 .inputLabel {
-  font-family: var(--font-stack-body);
+  position: absolute;
+  top: -18px;
+  left: 0;
+  font-family: var(--font-mono-stack);
   font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
+  letter-spacing: 0.18em;
+  color: var(--text-faint);
 }
 
 .input {
   width: 100%;
-  padding: 16px 0;
-  font-family: var(--font-stack-body);
-  font-size: 17px;
-  background: transparent;
-  color: var(--ink);
-  border: none;
-  border-bottom: 1px solid var(--paper-edge);
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s ease;
+  font-family: var(--font-ui-stack);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+  backdrop-filter: blur(8px);
 }
 
 .input::placeholder {
-  color: var(--ink-mute);
-  font-style: italic;
+  color: var(--text-faint);
 }
 
 .input:focus {
-  border-bottom-color: var(--rust);
+  border-color: var(--hairline-strong);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.04),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
 .errorText {
-  color: var(--rust-deep);
-  font-family: var(--font-stack-cn);
+  margin: 8px 0 0;
+  font-family: var(--font-ui-stack);
   font-size: 13px;
-  margin: 4px 0 0;
+  color: #ff8a8a;
 }
 
-/* ─── Three-column working area ────────────────────────────────────── */
+/* ─── Stage (card or placeholder) ──────────────────────────────────── */
 
-.workspace {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(0, 2.2fr) minmax(0, 1.6fr);
-  gap: clamp(20px, 3vw, 48px);
-  padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 64px) clamp(48px, 8vw, 88px);
-  align-items: start;
-}
-
-/* Column 1 — meta sidebar (issue notes, drop cap, footnote feel) */
-.metaCol {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  position: sticky;
-  top: 24px;
-  font-family: var(--font-stack-body);
-  font-size: 13px;
-  color: var(--ink-soft);
-  line-height: 1.5;
-}
-
-.metaBlock {
-  border-top: 1px solid var(--paper-edge);
-  padding-top: 14px;
-}
-
-.metaLabel {
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
-  margin: 0 0 6px;
-}
-
-.metaValue {
-  margin: 0;
-  font-family: var(--font-stack-cn);
-  color: var(--ink);
-  font-size: 14px;
-}
-
-.dropCap {
-  font-family: var(--font-stack-display);
-  font-size: 96px;
-  line-height: 0.85;
-  color: var(--rust);
-  margin: 0;
-  letter-spacing: -0.04em;
-}
-
-/* Column 2 — card stage */
-.cardCol {
+.stage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
+  width: 100%;
+  max-width: 720px;
 }
 
 .cardStage {
   position: relative;
   display: flex;
   justify-content: center;
-  min-height: 220px;
+  align-items: center;
+  min-height: 460px;
   width: 100%;
 }
 
-.cardFrame {
-  /* Cards drop a subtle shadow onto the paper; this frame adds a deckle-
-     edge feel so the card sits "on" the page rather than floating in space. */
-  position: relative;
-  display: inline-block;
-}
-
-.cardFrame::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border: 1px solid var(--paper-edge);
-  pointer-events: none;
-  transform: rotate(-0.6deg);
-  z-index: -1;
+.cardStage > * {
+  /* Slight floating effect — card sits on a soft glow that picks up the
+     ambient bloom underneath it. */
+  filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 8px 20px rgba(0, 0, 0, 0.35));
 }
 
 .placeholder {
   width: 100%;
-  max-width: 360px;
-  padding: 48px 28px;
-  text-align: center;
-  border: 1px dashed var(--paper-edge);
-  border-radius: 2px;
-  font-family: var(--font-stack-cn);
-  color: var(--ink-mute);
+  max-width: 420px;
+  padding: 60px 32px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
   align-items: center;
+  gap: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  filter: none;
 }
 
-.placeholderArrow {
-  font-family: var(--font-stack-display);
+.placeholderIcon {
+  font-family: var(--font-mono-stack);
   font-size: 28px;
-  color: var(--rust);
-  font-style: italic;
+  color: var(--text-soft);
+  letter-spacing: 0.06em;
+}
+
+.placeholderText {
+  margin: 0;
+  font-family: var(--font-ui-stack);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-mute);
+  max-width: 28ch;
 }
 
 .placeholderHint {
-  font-size: 13px;
-  line-height: 1.7;
   margin: 0;
-  max-width: 24ch;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
 }
 
 .skeleton {
   width: 320px;
   height: 460px;
+  border-radius: 14px;
   background: linear-gradient(
     100deg,
-    var(--paper-deep) 0%,
-    var(--paper) 40%,
-    var(--paper-deep) 80%
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 100%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s infinite linear;
+  filter: none;
 }
 
 @keyframes shimmer {
@@ -328,100 +241,220 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding: 36px 20px;
-  font-family: var(--font-stack-cn);
-  color: var(--rust-deep);
+  padding: 36px 24px;
+  color: #ff9a9a;
   text-align: center;
+  font-size: 14px;
+  filter: none;
 }
 
-.button {
+/* ─── Action row (under the card) ──────────────────────────────────── */
+
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.primary {
   padding: 14px 28px;
-  font-family: var(--font-stack-body);
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 500;
-  background: var(--ink);
-  color: var(--paper);
+  font-family: var(--font-ui-stack);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  background: var(--accent);
+  color: #050505;
   border: none;
+  border-radius: 999px;
   cursor: pointer;
   transition:
+    transform 0.2s ease,
     background 0.2s ease,
-    transform 0.2s ease;
+    box-shadow 0.2s ease;
+  box-shadow:
+    0 8px 24px rgba(255, 255, 255, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
-.button:hover:not(:disabled) {
-  background: var(--rust);
+.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 36px rgba(255, 255, 255, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
-.button:active:not(:disabled) {
-  transform: translateY(1px);
+.primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
-.button:disabled {
-  background: transparent;
-  color: var(--ink-mute);
-  border: 1px solid var(--paper-edge);
+.primary:disabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-faint);
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .secondary {
-  background: transparent;
-  color: var(--rust);
-  border: 1px solid var(--rust);
+  padding: 13px 22px;
+  font-family: var(--font-ui-stack);
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--rust);
-  color: var(--paper);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
-/* Column 3 — essay-side (lyrics + SongDNA) */
-.essayCol {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
+.secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-.essaySection {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.essayHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--paper-edge);
-}
-
-.essayTitle {
-  font-family: var(--font-stack-display);
-  font-size: 22px;
-  font-weight: 500;
-  font-style: italic;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-  margin: 0;
-}
-
-.essayMeta {
-  font-family: var(--font-stack-body);
+.secondaryHint {
+  font-family: var(--font-mono-stack);
   font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ink-mute);
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
 }
 
-/* ─── Modal (fallback for mobile share that the OS doesn't support) ── */
+.secondaryActive {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* ─── Detail panels (lyrics + SongDNA) ─────────────────────────────── */
+
+.panels {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.panelHead:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--font-ui-stack);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--text);
+}
+
+.panelKicker {
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.panelMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+}
+
+.panelChevron {
+  width: 10px;
+  height: 10px;
+  border-right: 1.5px solid var(--text-mute);
+  border-bottom: 1.5px solid var(--text-mute);
+  transform: rotate(45deg);
+  transition: transform 0.3s ease;
+}
+
+.panelChevronOpen {
+  transform: rotate(-135deg);
+  border-color: var(--text);
+}
+
+.panelBody {
+  padding: 0 22px 22px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 18px;
+  animation: revealDown 280ms ease both;
+}
+
+@keyframes revealDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Reveal animation ─────────────────────────────────────────────── */
+
+.fadeIn {
+  animation: fadeUp 480ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Modal (mobile share fallback) ────────────────────────────────── */
 
 .modalBackdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20, 18, 16, 0.78);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(20px);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -441,7 +474,9 @@
 
 .modalContent {
   position: relative;
-  background: var(--paper);
+  background: var(--bg-rise);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
   padding: 44px 20px 24px;
   max-width: 360px;
   width: 100%;
@@ -449,31 +484,30 @@
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  border: 1px solid var(--paper-edge);
 }
 
 .modalClose {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 10px;
+  right: 10px;
   width: 32px;
   height: 32px;
   border: none;
   background: transparent;
-  color: var(--ink-mute);
+  color: var(--text-mute);
   font-size: 18px;
   cursor: pointer;
   line-height: 1;
 }
 
 .modalClose:hover {
-  color: var(--rust);
+  color: var(--text);
 }
 
 .modalHint {
   margin: 0;
-  font-family: var(--font-stack-cn);
-  color: var(--rust);
+  font-family: var(--font-ui-stack);
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
   text-align: center;
@@ -482,99 +516,61 @@
 .modalImage {
   max-width: 100%;
   height: auto;
-  box-shadow: 0 8px 28px rgba(20, 18, 16, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   display: block;
   -webkit-touch-callout: default;
   user-select: auto;
 }
 
-/* ─── Reveal animation (used by entering content blocks) ─────────────── */
+/* ─── Mobile ───────────────────────────────────────────────────────── */
 
-.reveal {
-  animation: revealUp 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-}
-
-@keyframes revealUp {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+@media (max-width: 720px) {
+  .nav {
+    padding: 14px 16px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ─── Responsive ─────────────────────────────────────────────────────── */
-
-/* Tablet — drop meta column, keep card + essay side by side */
-@media (max-width: 1024px) {
-  .workspace {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr);
-  }
-  .metaCol {
+  .navTagline {
     display: none;
   }
-}
-
-/* Phone — single column, reorder so card → lyrics → SongDNA → download */
-@media (max-width: 720px) {
-  .masthead {
-    padding: 16px 18px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  .navRight {
+    gap: 16px;
   }
-  .mastheadBrand {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-  .mastheadLogo {
-    font-size: 22px;
-  }
-  .mastheadTagline {
-    font-size: 10px;
-    letter-spacing: 0.04em;
-  }
-  .mastheadNav {
-    gap: 14px;
-    font-size: 11px;
-    flex-shrink: 0;
-  }
-  .editorial {
-    padding: 28px 18px 18px;
-    gap: 14px;
-  }
-  .headline {
-    font-size: 38px;
-    line-height: 1.05;
-  }
-  .lede {
-    font-size: 14px;
-  }
-  .inputRow {
-    padding: 0 18px 20px;
-  }
-  .workspace {
-    grid-template-columns: 1fr;
-    gap: 32px;
-    padding: 12px 18px 56px;
-  }
-  .cardCol,
-  .essayCol {
-    align-items: stretch;
-  }
-  .essayCol {
+  .main {
+    padding: 32px 16px 60px;
     gap: 28px;
   }
-  .button {
+  .inputLabel {
+    top: -16px;
+    font-size: 10px;
+  }
+  .input {
+    font-size: 14px;
+    padding: 14px 16px;
+  }
+  .cardStage {
+    min-height: 420px;
+  }
+  .placeholder {
+    padding: 44px 24px;
+  }
+  .actionRow {
     width: 100%;
-    padding: 16px 24px;
+  }
+  .primary {
+    flex: 1;
+    padding: 14px 22px;
+    justify-content: center;
+  }
+  .secondary {
+    flex: 1;
+    padding: 13px 18px;
+    justify-content: center;
     font-size: 12px;
   }
-  .essayTitle {
-    font-size: 20px;
+  .panelHead {
+    padding: 16px 18px;
+  }
+  .panelBody {
+    padding: 16px 18px 18px;
   }
 }

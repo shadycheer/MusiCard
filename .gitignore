@@ -21,6 +21,8 @@ tsconfig.tsbuildinfo
 .netease-*.txt
 .v2-*.png
 .v2-*.txt
+.v3-*.png
+.v3-*.txt
 .layout-*.png
 .layout-*.txt
 .home-snapshot.txt

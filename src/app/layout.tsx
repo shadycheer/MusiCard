@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Manrope, Inter, Fraunces, EB_Garamond, Noto_Serif_SC } from 'next/font/google';
+import { Manrope, Inter, Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
 // Card-specific fonts (kept exactly as the share cards render them — these
@@ -20,31 +20,18 @@ const inter = Inter({
   fallback: ['-apple-system', 'BlinkMacSystemFont', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
 });
 
-// Site-chrome fonts — "music essay" aesthetic. Fraunces is the variable
-// display face (axes-driven, lots of optical sizes), EB Garamond is the
-// quiet long-form body face, Noto Serif SC carries the Chinese typography.
-const fraunces = Fraunces({
+// Site-chrome fonts — modern grotesk, refined dark utility aesthetic.
+// Geist for everything, Geist Mono for micro-labels and code-feeling tags.
+const geist = Geist({
   subsets: ['latin'],
-  weight: ['400', '500', '700', '900'],
-  style: ['normal', 'italic'],
-  variable: '--font-display',
+  variable: '--font-ui',
   display: 'swap',
 });
 
-const ebGaramond = EB_Garamond({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-body',
+  variable: '--font-mono',
   display: 'swap',
-});
-
-const notoSerifSC = Noto_Serif_SC({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-cn',
-  display: 'swap',
-  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -60,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh"
-      className={`${manrope.variable} ${inter.variable} ${fraunces.variable} ${ebGaramond.variable} ${notoSerifSC.variable}`}
+      className={`${manrope.variable} ${inter.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body>{children}</body>
     </html>

@@ -3,54 +3,87 @@
 }
 
 :root {
-  /* Paper palette — warm cream ground for the music-essay aesthetic. */
-  --paper: #faf6ee;
-  --paper-deep: #f1e9d8;
-  --paper-edge: #e3d8be;
-  --ink: #1a1816;
-  --ink-soft: #4a4540;
-  --ink-mute: #8a8174;
-  --rust: #a8423c;
-  --rust-deep: #8d2f29;
-  --olive: #7c7e54;
+  /* Refined dark palette — deep ink, with cover-derived ambient bloom
+     layered on top as CSS variables set per-track from the page. */
+  --bg: #050505;
+  --bg-rise: #0d0d0e;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
 
-  --font-stack-display: var(--font-display), 'Songti SC', 'STSong', 'Source Han Serif SC',
-    serif;
-  --font-stack-body: var(--font-body), var(--font-cn), 'Songti SC', 'STSong', serif;
-  --font-stack-cn: var(--font-cn), 'Songti SC', 'STSong', 'Source Han Serif SC', serif;
+  --text: rgba(255, 255, 255, 0.94);
+  --text-soft: rgba(255, 255, 255, 0.66);
+  --text-mute: rgba(255, 255, 255, 0.42);
+  --text-faint: rgba(255, 255, 255, 0.26);
+
+  --accent: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.85);
+
+  /* Cover-derived bloom variables, defaulted to neutral cool teal.
+     Page sets them from extractCoverPalette() once a track loads. */
+  --bloom-1: rgba(96, 165, 250, 0.22);
+  --bloom-2: rgba(168, 85, 247, 0.16);
+
+  --font-ui-stack:
+    var(--font-ui), -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --font-mono-stack:
+    var(--font-mono), 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', monospace;
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--font-stack-body);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui-stack);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv11', 'ss01';
 }
 
-/* Subtle paper grain — laid over a fixed bg so it doesn't move on scroll. */
+body {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Ambient bloom — two oversized soft radial gradients that slowly shift
+   tone depending on the current track's cover palette. Sits behind all
+   content with no pointer interference. */
 body::before {
+  content: '';
+  position: fixed;
+  inset: -20% -10% auto -10%;
+  height: 90vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60% 80% at 30% 0%, var(--bloom-1) 0%, transparent 70%),
+    radial-gradient(60% 80% at 80% 10%, var(--bloom-2) 0%, transparent 75%);
+  filter: blur(40px) saturate(140%);
+  opacity: 0.9;
+  transition: background 1.2s ease;
+}
+
+/* Subtle film-grain overlay for depth — used the same trick on the
+   cards, here it just keeps the deep black from looking like cheap CSS. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5;
   background-image:
-    radial-gradient(rgba(26, 24, 22, 0.05) 1px, transparent 1px),
-    radial-gradient(rgba(26, 24, 22, 0.04) 1px, transparent 1px);
-  background-size: 3px 3px, 7px 7px;
-  background-position: 0 0, 1px 2px;
-  mix-blend-mode: multiply;
+    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: screen;
+  opacity: 0.4;
 }
 
-/* Reduce all that paper grain to nothing for users who'd rather not see it. */
 @media (prefers-reduced-motion: reduce) {
   body::before {
-    opacity: 0.25;
+    transition: none;
   }
 }
