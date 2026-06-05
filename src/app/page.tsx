@@ -1,13 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import ShareCard from '@/components/ShareCard';
 import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
 import SongDNAPanel, { type SongDNAState } from '@/components/SongDNAPanel';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
 import { generateQrSvg } from '@/lib/qr';
 import { renderCardCanvas } from '@/lib/renderCardCanvas';
-import { fetchLyrics, parseLyrics } from '@/lib/lrclib';
+import { fetchLyricsLrclib, fetchLyricsAi, parseLyrics } from '@/lib/lrclib';
+import { streamSongDna } from '@/lib/songDnaClient';
 import { proxyCoverUrl } from '@/lib/coverProxy';
 import { extractCoverPalette } from '@/lib/colorExtraction';
 import type { Platform } from '@/lib/musicUrl';
@@ -166,6 +174,10 @@ export default function Page() {
   }, [state]);
 
   useEffect(() => {
+    // Track change → abort any in-flight song-dna stream to free the
+    // route handler and avoid late state updates landing on the new song.
+    songDnaAbortRef.current?.abort();
+
     if (state.kind !== 'success') {
       setLyricsState({ kind: 'idle' });
       setManualText('');
@@ -179,18 +191,43 @@ export default function Page() {
     setLyricsState({ kind: 'loading' });
 
     const ctrl = new AbortController();
-    fetchLyrics(state.track.title, state.track.artist, ctrl.signal)
-      .then((lines) => {
+    const { title, artist } = state.track;
+
+    (async () => {
+      try {
+        const first = await fetchLyricsLrclib(title, artist, ctrl.signal);
         if (ctrl.signal.aborted) return;
-        if (lines && lines.length > 0) {
-          setLyricsState({ kind: 'found', lines });
+
+        // Terminal outcomes from LRCLIB phase.
+        if (first.source === 'lrclib' && first.lines && first.lines.length > 0) {
+          setLyricsState({ kind: 'found', lines: first.lines, source: 'lrclib' });
+          return;
+        }
+        if (first.source === 'ai' && first.lines && first.lines.length > 0) {
+          setLyricsState({ kind: 'found', lines: first.lines, source: 'ai' });
+          return;
+        }
+        if (first.source === 'ai-miss') {
+          setLyricsState({ kind: 'not-found' });
+          return;
+        }
+
+        // LRCLIB miss → tell user we're falling back to AI, then fire phase 2.
+        setLyricsState({ kind: 'ai-searching' });
+        const second = await fetchLyricsAi(title, artist, ctrl.signal);
+        if (ctrl.signal.aborted) return;
+
+        if (second.lines && second.lines.length > 0) {
+          setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
         } else {
           setLyricsState({ kind: 'not-found' });
         }
-      })
-      .catch(() => {
-        if (!ctrl.signal.aborted) setLyricsState({ kind: 'not-found' });
-      });
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setLyricsState({ kind: 'not-found' });
+      }
+    })();
 
     return () => ctrl.abort();
   }, [state]);
@@ -218,40 +255,105 @@ export default function Page() {
     });
   };
 
-  const requestSongDna = useCallback(async () => {
-    if (state.kind !== 'success') return;
-    setDnaOpen(true);
-    setSongDnaState({ kind: 'loading' });
-    try {
-      const res = await fetch('/api/song-dna', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: state.track.title,
-          artist: state.track.artist,
-        }),
-      });
-      const data = (await res.json()) as
-        | { hasStory: true; text: string; sources?: string[] }
-        | { hasStory: false }
-        | { error: string };
-      if (!res.ok || 'error' in data) {
-        const msg = 'error' in data ? data.error : '请求失败';
-        setSongDnaState({ kind: 'error', message: msg });
-        return;
-      }
-      if (!data.hasStory) {
-        setSongDnaState({ kind: 'empty' });
-        return;
-      }
-      setSongDnaState({ kind: 'found', text: data.text, sources: data.sources });
-    } catch (err) {
+  const songDnaAbortRef = useRef<AbortController | null>(null);
+
+  const requestSongDna = useCallback(
+    async (refresh = false) => {
+      if (state.kind !== 'success') return;
+
+      songDnaAbortRef.current?.abort();
+      const ctrl = new AbortController();
+      songDnaAbortRef.current = ctrl;
+
       setSongDnaState({
-        kind: 'error',
-        message: err instanceof Error ? err.message : '请求失败',
+        kind: 'loading',
+        phase: refresh ? 'refreshing' : 'reading',
+        currentAction: refresh ? '正在重新检索…' : '正在读取这首歌的资料…',
       });
+
+      const params = new URLSearchParams({
+        title: state.track.title,
+        artist: state.track.artist,
+        platform: state.track.platform,
+        sourceUrl: state.track.sourceUrl,
+        ...(refresh ? { refresh: 'true' } : {}),
+      });
+
+      try {
+        let receivedFinal = false;
+        await streamSongDna(
+          `/api/song-dna?${params.toString()}`,
+          (event) => {
+            if (event.kind === 'status') {
+              setSongDnaState((s) =>
+                s.kind === 'loading'
+                  ? {
+                      kind: 'loading',
+                      phase: event.phase,
+                      currentAction: phaseToText(event.phase, event.detail),
+                    }
+                  : s,
+              );
+            } else if (event.kind === 'final') {
+              receivedFinal = true;
+              if (event.payload.hasData) {
+                setSongDnaState({
+                  kind: 'found',
+                  payload: event.payload,
+                  cached: event.cached,
+                  cachedAt: event.cachedAt,
+                });
+              } else {
+                setSongDnaState({ kind: 'empty' });
+              }
+            } else if (event.kind === 'error') {
+              setSongDnaState({ kind: 'error', message: event.message });
+            }
+          },
+          ctrl.signal,
+        );
+        if (!receivedFinal && !ctrl.signal.aborted) {
+          setSongDnaState({
+            kind: 'error',
+            message: '查询超时或流意外终止',
+          });
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setSongDnaState({
+          kind: 'error',
+          message: err instanceof Error ? err.message : '请求失败',
+        });
+      }
+    },
+    [state],
+  );
+
+  function phaseToText(
+    phase:
+      | 'started'
+      | 'searching'
+      | 'analyzing'
+      | 'synthesizing'
+      | 'reading'
+      | 'refreshing',
+    detail?: string,
+  ): string {
+    switch (phase) {
+      case 'started':
+        return '正在准备检索…';
+      case 'searching':
+        return detail ? `正在搜索：${detail}` : 'AI 正在联网检索…';
+      case 'analyzing':
+        return detail ?? '正在阅读搜索结果…';
+      case 'synthesizing':
+        return '正在整合资料并撰写…';
+      case 'reading':
+        return '正在读取这首歌的资料…';
+      case 'refreshing':
+        return '正在重新检索…';
     }
-  }, [state]);
+  }
 
   const handleExport = async () => {
     if (state.kind !== 'success' || !qrSvg) return;
@@ -294,8 +396,16 @@ export default function Page() {
     }
   };
 
-  const hasTrack = state.kind === 'success';
   void bloomVars; // referenced just for the linter — actual mutation is on body
+
+  const stage: 'idle' | 'loading' | 'error' | 'success' =
+    state.kind === 'idle' || state.kind === 'invalid'
+      ? 'idle'
+      : state.kind === 'loading'
+        ? 'loading'
+        : state.kind === 'error'
+          ? 'error'
+          : 'success';
 
   return (
     <div className={styles.page}>
@@ -320,7 +430,7 @@ export default function Page() {
         </div>
       </header>
 
-      <main className={styles.main}>
+      <main className={styles.main} data-stage={stage}>
         <div className={styles.inputWrap}>
           <label className={styles.inputLabel} htmlFor="track-input">
             LINK
@@ -335,64 +445,59 @@ export default function Page() {
           {state.kind === 'invalid' && (
             <p className={styles.errorText}>{state.message}</p>
           )}
+          {stage === 'idle' && (
+            <p className={styles.inputHint}>
+              SUPPORTS · SPOTIFY · APPLE MUSIC · 网易云
+            </p>
+          )}
         </div>
 
-        <div className={styles.workArea}>
-          <div className={styles.cardCol}>
-            <div className={styles.cardStage}>
-              {state.kind === 'idle' && (
-                <div className={`${styles.placeholder} ${styles.fadeIn}`}>
-                  <span className={styles.placeholderIcon}>♪</span>
-                  <p className={styles.placeholderText}>
-                    把一首歌的链接贴到上面那条线里，
-                    这里就会浮出一张可以发到聊天里的卡片。
-                  </p>
-                  <p className={styles.placeholderHint}>SUPPORTS · SPOTIFY · APPLE MUSIC · 网易云</p>
-                </div>
-              )}
-              {state.kind === 'loading' && <div className={styles.skeleton} />}
-              {state.kind === 'error' && (
-                <div className={styles.errorBox}>
-                  <p>{state.message}</p>
-                  <button
-                    className={styles.secondary}
-                    onClick={refetch}
-                    type="button"
-                  >
-                    重试
-                  </button>
-                </div>
-              )}
-              {hasTrack && qrSvg && (
-                <div className={styles.fadeIn}>
-                  <ShareCard
-                    title={state.track.title}
-                    artist={state.track.artist}
-                    coverUrl={proxyCoverUrl(state.track.coverUrl)}
-                    qrSvg={qrSvg}
-                    platform={state.track.platform}
-                    lyrics={selectedLyricLines}
-                  />
-                </div>
-              )}
-            </div>
+        {stage === 'loading' && (
+          <div className={styles.centerStage}>
+            <div className={`${styles.skeleton} ${styles.fadeUp}`} />
+          </div>
+        )}
 
-            {hasTrack && (
+        {stage === 'error' && state.kind === 'error' && (
+          <div className={styles.centerStage}>
+            <div className={`${styles.errorBox} ${styles.fadeUp}`}>
+              <p>{state.message}</p>
               <button
-                className={`${styles.primary} ${styles.fadeIn}`}
+                className={styles.secondary}
+                onClick={refetch}
+                type="button"
+              >
+                重试
+              </button>
+            </div>
+          </div>
+        )}
+
+        {state.kind === 'success' && qrSvg && (
+          <div className={styles.workArea}>
+            <div className={`${styles.cardCol} ${styles.cardColEnter}`}>
+              <div className={styles.cardFrame}>
+                <ShareCard
+                  title={state.track.title}
+                  artist={state.track.artist}
+                  coverUrl={proxyCoverUrl(state.track.coverUrl)}
+                  qrSvg={qrSvg}
+                  platform={state.track.platform}
+                  lyrics={selectedLyricLines}
+                />
+              </div>
+              <button
+                className={`${styles.primary} ${styles.fadeUpDelayed}`}
                 disabled={!qrSvg || exporting}
                 onClick={handleExport}
                 type="button"
               >
                 {exporting ? '导出中…' : isMobile ? '保存到相册' : '下载图片'}
               </button>
-            )}
+              {exportError && <p className={styles.errorText}>{exportError}</p>}
+            </div>
 
-            {exportError && <p className={styles.errorText}>{exportError}</p>}
-          </div>
-
-          {hasTrack && (
-            <div className={`${styles.panelsCol} ${styles.fadeIn}`}>
+            <div className={`${styles.panelsCol} ${styles.panelsColEnter}`}>
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>
@@ -433,8 +538,8 @@ export default function Page() {
                 </div>
               </section>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </main>
 
       {fallbackImageUrl && (
