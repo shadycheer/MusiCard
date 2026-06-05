@@ -1,7 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'anthropic/claude-sonnet-4.6';
+// DeepSeek V3 by default — strong Chinese knowledge, ~1/20 the cost of
+// Claude Sonnet, and not region-locked (OpenRouter blocks anthropic/*
+// models from China-mainland IPs even when called via OpenRouter itself).
+// Override with OPENROUTER_MODEL env var when deploying to Vercel where
+// region is no longer a constraint.
+const MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-chat';
 
 const SYSTEM_PROMPT = `你是一位克制、考据严谨的音乐随笔作者，为分享卡片配写一段"歌曲背后的故事"。
 
