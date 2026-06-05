@@ -78,24 +78,50 @@
   color: var(--text-mute);
 }
 
-.essayBody {
+.essay {
+  gap: 18px;
+}
+
+.credits {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 18px;
+  row-gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.creditRow {
+  display: contents;
+}
+
+.creditLabel {
+  margin: 0;
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  align-self: center;
+}
+
+.creditValue {
   margin: 0;
   font-family: var(--font-ui-stack);
-  font-size: 15px;
-  line-height: 1.78;
+  font-size: 14px;
   color: var(--text);
   letter-spacing: -0.005em;
 }
 
-.essayDropCap {
-  font-family: var(--font-mono-stack);
-  font-size: 40px;
-  font-weight: 500;
-  line-height: 0.9;
+.story {
+  margin: 0;
+  font-family: var(--font-ui-stack);
+  font-size: 14.5px;
+  line-height: 1.78;
   color: var(--text);
-  float: left;
-  margin: 6px 10px 0 0;
-  padding: 0;
+  letter-spacing: -0.005em;
 }
 
 .sources {

@@ -145,15 +145,31 @@
   color: #ff8a8a;
 }
 
-/* ─── Stage (card or placeholder) ──────────────────────────────────── */
+/* ─── Work area (two-column on desktop, stacked on mobile) ─────────── */
 
-.stage {
+.workArea {
+  width: 100%;
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: start;
+}
+
+.cardCol {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
-  width: 100%;
-  max-width: 720px;
+  gap: 24px;
+  position: sticky;
+  top: 24px;
+}
+
+.panelsCol {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
 }
 
 .cardStage {
@@ -338,14 +354,6 @@
 
 /* ─── Detail panels (lyrics + SongDNA) ─────────────────────────────── */
 
-.panels {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
 .panel {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--hairline);
@@ -360,13 +368,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 18px 22px;
-  cursor: pointer;
   user-select: none;
-  transition: background 0.2s ease;
-}
-
-.panelHead:hover {
-  background: rgba(255, 255, 255, 0.025);
 }
 
 .panelTitle {
@@ -414,10 +416,8 @@
 }
 
 .panelBody {
-  padding: 0 22px 22px;
+  padding: 18px 22px 22px;
   border-top: 1px solid var(--hairline);
-  padding-top: 18px;
-  animation: revealDown 280ms ease both;
 }
 
 @keyframes revealDown {
@@ -523,6 +523,18 @@
   user-select: auto;
 }
 
+/* ─── Tablet — collapse two-column work area to single column ──────── */
+
+@media (max-width: 1024px) {
+  .workArea {
+    grid-template-columns: 1fr;
+    max-width: 640px;
+  }
+  .cardCol {
+    position: static;
+  }
+}
+
 /* ─── Mobile ───────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {
@@ -553,19 +565,10 @@
   .placeholder {
     padding: 44px 24px;
   }
-  .actionRow {
-    width: 100%;
-  }
   .primary {
-    flex: 1;
+    width: 100%;
     padding: 14px 22px;
     justify-content: center;
-  }
-  .secondary {
-    flex: 1;
-    padding: 13px 18px;
-    justify-content: center;
-    font-size: 12px;
   }
   .panelHead {
     padding: 16px 18px;

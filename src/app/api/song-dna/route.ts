@@ -6,19 +6,36 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 // models from China-mainland IPs even when called via OpenRouter itself).
 // Override with OPENROUTER_MODEL env var when deploying to Vercel where
 // region is no longer a constraint.
-const MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-chat';
+const MODEL = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro';
 
-const SYSTEM_PROMPT = `你是一位克制、考据严谨的音乐随笔作者，为分享卡片配写一段"歌曲背后的故事"。
+const SYSTEM_PROMPT = `你是一位严谨的音乐资料考据者，为分享卡补充"歌曲背后的资料"。
 
-规则（严格遵守）：
-1. 只在你确信的事实上展开。不知道、不确定、可能是编造的，一律不写。
-2. 如果你对这首歌的背景信息掌握不足以写出 2 句以上有意义的内容，直接返回 JSON: {"hasStory": false}。不要勉强编。
-3. 有内容时返回 JSON: {"hasStory": true, "text": "<150-280字中文随笔>", "sources": ["维基百科" 或 "Genius" 或 "艺人专访" 等可信来源类型，不超过 3 个]}。
-4. 文风：中文、克制、有人情味。不写营销话术。不写"这首歌广受好评"这种空话。讲真事：创作背景、灵感来源、原型故事、流派渊源、文化关联、有意思的轶事，任选 1-2 个角度即可。
-5. 不要复述歌词。不要描述音乐性（BPM/和弦/编曲手法）。专注故事。
-6. 用一个具体的事实/情境开头（比如年份、地点、人物、事件），不要用"这首歌..."开头。
-7. 全程使用简体中文。不夹杂英文段落。
-8. 严禁编造艺人姓名、年份、地点、合作者。不确定就归到 hasStory: false。`;
+任务（按这个顺序考据）：
+1. 找出这首歌的创作者：作词 / 作曲 / 编曲 / 制作人（能确认的字段才填，否则留 null）
+2. 挖掘创作背景：灵感来源、原型人物或事件、写作时的处境、艺人当时的状态
+3. 如有，补充制作过程的细节：录音轶事、特殊器乐选择、采样来源、关键合作者
+
+严格规则：
+- 你是在**查资料**，不是在**写作品**。所有内容必须基于你已知的真实事实。
+- 不要复述歌词。不要做音乐性技术分析（BPM/和弦/编曲手法）。
+- 不确定的字段宁缺勿编。credits 没把握就设为 null。
+- 如果你对这首歌的资料掌握不足以填出 credits 中任意一项 + 至少 80 字 story，返回 {"hasStory": false}。
+- 全程简体中文，不夹杂英文段落。
+
+返回 JSON，shape：
+{
+  "hasStory": true,
+  "credits": {
+    "lyrics": "作词人" | null,
+    "composition": "作曲人" | null,
+    "arrangement": "编曲人" | null,
+    "production": "制作人" | null
+  },
+  "story": "100-260 字中文，讲创作背景与制作细节（按上面顺序 2、3）",
+  "sources": ["维基百科" | "Genius" | "艺人专访" | "唱片内页" 等可靠来源类型，最多 3 个]
+}
+
+或：{"hasStory": false}`;
 
 const USER_PROMPT_TEMPLATE = (title: string, artist: string) => `歌名：${title}
 艺人：${artist}
@@ -30,8 +47,15 @@ type OpenRouterResponse = {
   error?: { message?: string };
 };
 
+type Credits = {
+  lyrics?: string | null;
+  composition?: string | null;
+  arrangement?: string | null;
+  production?: string | null;
+};
+
 type SongDnaPayload =
-  | { hasStory: true; text: string; sources?: string[] }
+  | { hasStory: true; credits?: Credits; story: string; sources?: string[] }
   | { hasStory: false };
 
 export async function POST(request: NextRequest) {
@@ -101,7 +125,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       hasStory: true,
-      text: parsed.text,
+      credits: parsed.credits ?? {},
+      story: parsed.story,
       sources: parsed.sources ?? [],
     });
   } catch (err) {

@@ -105,8 +105,6 @@ export default function Page() {
   const [manualText, setManualText] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [songDnaState, setSongDnaState] = useState<SongDNAState>({ kind: 'idle' });
-  const [lyricsOpen, setLyricsOpen] = useState(true);
-  const [dnaOpen, setDnaOpen] = useState(false);
   const [bloomVars, setBloomVars] = useState<CSSProperties | null>(null);
 
   useEffect(() => {
@@ -120,9 +118,12 @@ export default function Page() {
     return manualText ? parseLyrics(manualText) : [];
   }, [lyricsState, manualText]);
 
+  // Selected lyrics — always rendered in the song's original line order
+  // (sorted by index), regardless of the order the user clicked them in.
   const selectedLyricLines = useMemo(
     () =>
-      selectedIndices
+      [...selectedIndices]
+        .sort((a, b) => a - b)
         .map((i) => lyricLines[i])
         .filter((s): s is string => typeof s === 'string'),
     [selectedIndices, lyricLines],
@@ -170,13 +171,11 @@ export default function Page() {
       setManualText('');
       setSelectedIndices([]);
       setSongDnaState({ kind: 'idle' });
-      setDnaOpen(false);
       return;
     }
     setSelectedIndices([]);
     setManualText('');
     setSongDnaState({ kind: 'idle' });
-    setDnaOpen(false);
     setLyricsState({ kind: 'loading' });
 
     const ctrl = new AbortController();
@@ -338,95 +337,64 @@ export default function Page() {
           )}
         </div>
 
-        <div className={styles.stage}>
-          <div className={styles.cardStage}>
-            {state.kind === 'idle' && (
-              <div className={`${styles.placeholder} ${styles.fadeIn}`}>
-                <span className={styles.placeholderIcon}>♪</span>
-                <p className={styles.placeholderText}>
-                  把一首歌的链接贴到上面那条线里，
-                  这里就会浮出一张可以发到聊天里的卡片。
-                </p>
-                <p className={styles.placeholderHint}>SUPPORTS · SPOTIFY · APPLE MUSIC · 网易云</p>
-              </div>
-            )}
-            {state.kind === 'loading' && <div className={styles.skeleton} />}
-            {state.kind === 'error' && (
-              <div className={styles.errorBox}>
-                <p>{state.message}</p>
-                <button
-                  className={styles.secondary}
-                  onClick={refetch}
-                  type="button"
-                >
-                  重试
-                </button>
-              </div>
-            )}
-            {hasTrack && qrSvg && (
-              <div className={styles.fadeIn}>
-                <ShareCard
-                  title={state.track.title}
-                  artist={state.track.artist}
-                  coverUrl={proxyCoverUrl(state.track.coverUrl)}
-                  qrSvg={qrSvg}
-                  platform={state.track.platform}
-                  lyrics={selectedLyricLines}
-                />
-              </div>
-            )}
-          </div>
+        <div className={styles.workArea}>
+          <div className={styles.cardCol}>
+            <div className={styles.cardStage}>
+              {state.kind === 'idle' && (
+                <div className={`${styles.placeholder} ${styles.fadeIn}`}>
+                  <span className={styles.placeholderIcon}>♪</span>
+                  <p className={styles.placeholderText}>
+                    把一首歌的链接贴到上面那条线里，
+                    这里就会浮出一张可以发到聊天里的卡片。
+                  </p>
+                  <p className={styles.placeholderHint}>SUPPORTS · SPOTIFY · APPLE MUSIC · 网易云</p>
+                </div>
+              )}
+              {state.kind === 'loading' && <div className={styles.skeleton} />}
+              {state.kind === 'error' && (
+                <div className={styles.errorBox}>
+                  <p>{state.message}</p>
+                  <button
+                    className={styles.secondary}
+                    onClick={refetch}
+                    type="button"
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
+              {hasTrack && qrSvg && (
+                <div className={styles.fadeIn}>
+                  <ShareCard
+                    title={state.track.title}
+                    artist={state.track.artist}
+                    coverUrl={proxyCoverUrl(state.track.coverUrl)}
+                    qrSvg={qrSvg}
+                    platform={state.track.platform}
+                    lyrics={selectedLyricLines}
+                  />
+                </div>
+              )}
+            </div>
 
-          {hasTrack && (
-            <div className={`${styles.actionRow} ${styles.fadeIn}`}>
+            {hasTrack && (
               <button
-                className={styles.primary}
+                className={`${styles.primary} ${styles.fadeIn}`}
                 disabled={!qrSvg || exporting}
                 onClick={handleExport}
                 type="button"
               >
                 {exporting ? '导出中…' : isMobile ? '保存到相册' : '下载图片'}
               </button>
-              <button
-                className={`${styles.secondary} ${lyricsOpen ? styles.secondaryActive : ''}`}
-                onClick={() => setLyricsOpen((v) => !v)}
-                type="button"
-              >
-                选歌词
-                <span className={styles.secondaryHint}>
-                  {selectedIndices.length}/{MAX_SELECTED_LYRICS}
-                </span>
-              </button>
-              <button
-                className={`${styles.secondary} ${dnaOpen ? styles.secondaryActive : ''}`}
-                onClick={() => {
-                  if (songDnaState.kind === 'idle') {
-                    requestSongDna();
-                  } else {
-                    setDnaOpen((v) => !v);
-                  }
-                }}
-                type="button"
-              >
-                阅读这首歌
-                <span className={styles.secondaryHint}>SONG DNA</span>
-              </button>
-            </div>
-          )}
+            )}
 
-          {exportError && <p className={styles.errorText}>{exportError}</p>}
-        </div>
+            {exportError && <p className={styles.errorText}>{exportError}</p>}
+          </div>
 
-        {hasTrack && (lyricsOpen || dnaOpen) && (
-          <div className={`${styles.panels} ${styles.fadeIn}`}>
-            {lyricsOpen && (
+          {hasTrack && (
+            <div className={`${styles.panelsCol} ${styles.fadeIn}`}>
               <section className={styles.panel}>
-                <header
-                  className={styles.panelHead}
-                  onClick={() => setLyricsOpen(false)}
-                  role="button"
-                  tabIndex={0}
-                >
+                <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>
                     <span className={styles.panelKicker}>01</span>
                     歌词
@@ -435,7 +403,6 @@ export default function Page() {
                     <span>
                       {selectedIndices.length}/{MAX_SELECTED_LYRICS} selected
                     </span>
-                    <span className={`${styles.panelChevron} ${styles.panelChevronOpen}`} />
                   </div>
                 </header>
                 <div className={styles.panelBody}>
@@ -450,32 +417,24 @@ export default function Page() {
                   />
                 </div>
               </section>
-            )}
 
-            {dnaOpen && (
               <section className={styles.panel}>
-                <header
-                  className={styles.panelHead}
-                  onClick={() => setDnaOpen(false)}
-                  role="button"
-                  tabIndex={0}
-                >
+                <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>
                     <span className={styles.panelKicker}>02</span>
                     Song DNA
                   </h2>
                   <div className={styles.panelMeta}>
                     <span>歌曲背后的故事</span>
-                    <span className={`${styles.panelChevron} ${styles.panelChevronOpen}`} />
                   </div>
                 </header>
                 <div className={styles.panelBody}>
                   <SongDNAPanel state={songDnaState} onRequest={requestSongDna} />
                 </div>
               </section>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </main>
 
       {fallbackImageUrl && (
