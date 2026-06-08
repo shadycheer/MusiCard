@@ -65,13 +65,22 @@ https://y.qq.com/n/ryqq/songDetail/<songmid>
 
 每首歌还会拿到一个可分享的短路径，如 `/qq-0039MnYb0qxYhV` —— 浏览器后退、收藏夹都按预期工作。
 
+## 歌词
+
+每个平台拿歌词的路径不同：
+
+- **网易云 / QQ 音乐** 直接走自家 lyrics API（最权威），miss 就直接交给 AI 兜底，不再绕 LRCLIB
+- **Spotify / Apple Music** 走 [LRCLIB](https://lrclib.net) 时间戳歌词库；miss 后并行的 AI 调用接力
+
+整个 race 跟前端 `useTrackInfo` 共享 AbortController，先来先用，另一边自动取消。
+
 ## 历史 & 专辑合并
 
 <p align="center">
   <img src="docs/media/04-home-with-history.png" width="640" alt="History shelf"/>
 </p>
 
-最近浏览的歌按时间倒序展示在首页。同一张专辑的多首会自动折叠成一张卡（点击展开列表），不管它们来自 Spotify 还是网易云 —— 按 `normalize(艺人) + normalize(专辑名)` 作 key 合并。
+最近浏览的歌按时间倒序展示在首页。同一张专辑的多首会自动折叠成一张卡（点击展开列表），跨平台也算 —— Spotify 上的"七里香"和 QQ 上的"七里香"按 `normalize(艺人) + normalize(专辑名)` 合并成一张。
 
 ## SONG-DNA
 
@@ -79,7 +88,7 @@ https://y.qq.com/n/ryqq/songDetail/<songmid>
   <img src="docs/media/06-song-dna.png" width="640" alt="Song DNA expanded"/>
 </p>
 
-> 顺带的小玩具：点一下让 AI 给你写这首歌的故事 —— 创作背景、典故、MV、奖项，带参考链接。结果会缓存到 DB，下次秒开。
+> 点一下让 AI 给你写这首歌的故事 —— 创作背景、方文山 vs 周杰伦自填词、MV 拍摄花絮、获奖记录，带参考资料链接。流式生成 + 落库缓存，下次秒开。
 
 ## 自己部署
 
@@ -111,10 +120,10 @@ QQ 音乐 / 网易云 / Apple Music 都直接走平台公开接口，**不需要
 ## 致谢
 
 - [Spotify Web API](https://developer.spotify.com/) · [iTunes Lookup](https://itunes.apple.com/lookup)
-- [LRCLIB](https://lrclib.net) 同步歌词
-- 网易云 weapi 反代理协议（社区逆向）
-- QQ 音乐 `c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg` 公开端点
-- Apple Music / Spotify / QQ Music / 网易云的官方品牌 logo（商标各自所有）
+- [LRCLIB](https://lrclib.net) 同步歌词（Spotify / Apple Music 走这条线）
+- 网易云 weapi 反代理协议（社区逆向）—— song detail + lyric 一并拿
+- QQ 音乐 `c.y.qq.com` 的 `fcg_play_single_song` + `fcg_query_lyric_new` 公开端点
+- Wikimedia Commons 的 QQ Music 2023 / 网易云 / Apple Music / Spotify 官方 logo SVG（商标各自所有）
 
 ## License
 

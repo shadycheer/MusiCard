@@ -27,11 +27,17 @@ const tmpDir = resolve(projectRoot, '.playwright-video');
 mkdirSync(tmpDir, { recursive: true });
 
 const VIEWPORT = { width: 1280, height: 800 };
-// Planetes by EGOIST — cached SONG-DNA + cached LRCLIB lyrics so the
-// full flow runs instantly (good for a tight GIF).
-const URL_TO_PASTE = 'https://open.spotify.com/track/1GUnIBiLhgEwSQJzGNuUrk';
+// 晴天 by 周杰伦 (QQ Music) — cached song-detail + cached SONG-DNA so
+// the gif lands in ~7s. Showcases the QQ Music platform which is the
+// newest addition + the brand-green card aesthetic.
+const URL_TO_PASTE = 'https://y.qq.com/n/ryqq/songDetail/0039MnYb0qxYhV';
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  /* Pin to an existing chromium 1208 binary so this works even when the
+     playwright npm package bump expects a newer build number. */
+  executablePath: '/Users/shadycheer/Library/Caches/ms-playwright/chromium-1208/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
+});
 const context = await browser.newContext({
   viewport: VIEWPORT,
   deviceScaleFactor: 2,
@@ -77,7 +83,7 @@ await page.waitForFunction(
     const txt = document.body.innerText || '';
     if (txt.includes('查找歌词中')) return false;
     if (txt.includes('AI 在帮你找歌词')) return false;
-    return /\bIs this the real life\?|\bSomewhere\b|\b故事\b|\bPlanetes\b|\b流れ\b|\b私\b|\bあなた\b|\b君\b|\b空\b|\b海\b/.test(txt);
+    return /\bIs this the real life\?|\bSomewhere\b|\b故事\b|\bPlanetes\b|\b流れ\b|\b私\b|\bあなた\b|\b君\b|\b空\b|\b海\b|\b小黄花\b|\b花瓣\b|\b童年\b/.test(txt);
   },
   { timeout: 15000 },
 ).catch(() => {});
