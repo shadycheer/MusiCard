@@ -42,5 +42,7 @@ function toResponse(t: CachedTrack) {
     artist: t.artist,
     coverUrl: t.coverUrl,
     sourceUrl: t.sourceUrl,
+    albumId: t.albumId ?? null,
+    albumName: t.albumName ?? null,
   };
 }

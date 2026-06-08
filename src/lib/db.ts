@@ -16,15 +16,38 @@ export type CachedTrack = {
   artist: string;
   coverUrl: string;
   sourceUrl: string;
+  /* Album metadata — optional because rows cached before the
+     2026-06-09 schema bump don't have them, and not every upstream
+     populates them (e.g. NetEase singles with no album entry). The
+     UI shelf groups by (artist + albumName) when both are present. */
+  albumId?: string | null;
+  albumName?: string | null;
 };
+
+/* Run once per cold start to bring older deployments' tracks table
+   up to schema. Idempotent — Neon/Postgres "ADD COLUMN IF NOT EXISTS"
+   is a no-op when the column already exists. Cheaper than a separate
+   migration framework for a 2-column add. */
+let schemaEnsured = false;
+async function ensureTracksSchema(): Promise<void> {
+  if (schemaEnsured || !sql) return;
+  try {
+    await sql`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS album_id TEXT`;
+    await sql`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS album_name TEXT`;
+    schemaEnsured = true;
+  } catch (err) {
+    console.error('[db] ensureTracksSchema failed:', err);
+  }
+}
 
 export async function getCachedTrack(
   cacheKey: string,
 ): Promise<CachedTrack | null> {
   if (!sql) return null;
+  await ensureTracksSchema();
   try {
     const rows = (await sql`
-      SELECT platform, external_id, country, locale, title, artist, cover_url, source_url
+      SELECT platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name
       FROM tracks
       WHERE cache_key = ${cacheKey}
       LIMIT 1
@@ -37,6 +60,8 @@ export async function getCachedTrack(
       artist: string;
       cover_url: string;
       source_url: string;
+      album_id: string | null;
+      album_name: string | null;
     }>;
     const row = rows[0];
     if (!row) return null;
@@ -53,6 +78,8 @@ export async function getCachedTrack(
       artist: row.artist,
       coverUrl: row.cover_url,
       sourceUrl: row.source_url,
+      albumId: row.album_id,
+      albumName: row.album_name,
     };
   } catch (err) {
     console.error('[db] getCachedTrack failed:', err);
@@ -107,6 +134,7 @@ export async function updateCachedTrack(
   track: CachedTrack,
 ): Promise<void> {
   if (!sql) return;
+  await ensureTracksSchema();
   try {
     await sql`
       UPDATE tracks SET
@@ -115,6 +143,8 @@ export async function updateCachedTrack(
         cover_url = ${track.coverUrl},
         source_url = ${track.sourceUrl},
         locale = ${track.locale},
+        album_id = ${track.albumId ?? null},
+        album_name = ${track.albumName ?? null},
         last_refreshed = NOW()
       WHERE cache_key = ${cacheKey}
     `;
@@ -128,20 +158,23 @@ export async function setCachedTrack(
   track: CachedTrack,
 ): Promise<void> {
   if (!sql) return;
+  await ensureTracksSchema();
   try {
     await sql`
       INSERT INTO tracks
-        (cache_key, platform, external_id, country, locale, title, artist, cover_url, source_url, hit_count, last_hit_at)
+        (cache_key, platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name, hit_count, last_hit_at)
       VALUES
         (${cacheKey}, ${track.platform}, ${track.externalId}, ${track.country},
          ${track.locale}, ${track.title}, ${track.artist}, ${track.coverUrl},
-         ${track.sourceUrl}, 1, NOW())
+         ${track.sourceUrl}, ${track.albumId ?? null}, ${track.albumName ?? null}, 1, NOW())
       ON CONFLICT (cache_key) DO UPDATE SET
         title = EXCLUDED.title,
         artist = EXCLUDED.artist,
         cover_url = EXCLUDED.cover_url,
         source_url = EXCLUDED.source_url,
         locale = EXCLUDED.locale,
+        album_id = EXCLUDED.album_id,
+        album_name = EXCLUDED.album_name,
         last_refreshed = NOW(),
         hit_count = tracks.hit_count + 1,
         last_hit_at = NOW()

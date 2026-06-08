@@ -26,6 +26,8 @@ export async function fetchAppleMusicTrack(
     artist: string;
     coverUrl: string;
     sourceUrl: string;
+    albumId?: string | null;
+    albumName?: string | null;
   };
 
   return {
@@ -34,5 +36,7 @@ export async function fetchAppleMusicTrack(
     coverUrl: data.coverUrl,
     sourceUrl: data.sourceUrl || canonicalUrl,
     platform: 'appleMusic',
+    albumId: data.albumId ?? undefined,
+    albumName: data.albumName ?? undefined,
   };
 }

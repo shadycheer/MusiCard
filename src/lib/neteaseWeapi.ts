@@ -119,7 +119,8 @@ export type WeapiTrack = {
   id: string;
   title: string;
   artist: string;
-  album: string;
+  albumId: string;
+  albumName: string;
   coverUrl: string;
 };
 
@@ -136,7 +137,8 @@ export async function fetchSongDetailViaWeapi(songId: string): Promise<WeapiTrac
     id: String(song.id),
     title: song.name,
     artist: song.ar?.map((a) => a.name).join(', ') ?? '',
-    album: song.al?.name ?? '',
+    albumId: song.al?.id ? String(song.al.id) : '',
+    albumName: song.al?.name ?? '',
     coverUrl: song.al?.picUrl ?? '',
   };
 }

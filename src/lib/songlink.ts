@@ -8,6 +8,12 @@ export type Track = {
   coverUrl: string;
   sourceUrl: string;
   platform: Platform;
+  /* Album metadata — optional because (a) earlier cached entries in
+     localStorage / DB pre-date this field and (b) some upstream
+     responses are missing it. When present, used by HistoryShelf to
+     group same-album tracks into one card. */
+  albumId?: string;
+  albumName?: string;
 };
 
 export async function fetchTrack(
@@ -42,12 +48,7 @@ async function fetchSpotifyTrack(
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error || `查询失败 (${res.status})`);
   }
-  const data = (await res.json()) as {
-    title: string;
-    artist: string;
-    coverUrl: string;
-    sourceUrl: string;
-  };
+  const data = (await res.json()) as TrackApiResponse;
 
   return {
     title: data.title,
@@ -55,6 +56,8 @@ async function fetchSpotifyTrack(
     coverUrl: data.coverUrl,
     sourceUrl: data.sourceUrl || canonicalUrl,
     platform: 'spotify',
+    albumId: data.albumId ?? undefined,
+    albumName: data.albumName ?? undefined,
   };
 }
 
@@ -71,12 +74,7 @@ async function fetchNeteaseTrack(
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error || `查询失败 (${res.status})`);
   }
-  const data = (await res.json()) as {
-    title: string;
-    artist: string;
-    coverUrl: string;
-    sourceUrl: string;
-  };
+  const data = (await res.json()) as TrackApiResponse;
 
   return {
     title: data.title,
@@ -84,5 +82,19 @@ async function fetchNeteaseTrack(
     coverUrl: data.coverUrl,
     sourceUrl: data.sourceUrl || canonicalUrl,
     platform: 'netease',
+    albumId: data.albumId ?? undefined,
+    albumName: data.albumName ?? undefined,
   };
 }
+
+/* Shared response shape — all three /api/*-track endpoints return
+   the same flat fields. albumId/albumName are nullable because pre-
+   schema-bump cached rows + some upstream responses lack them. */
+type TrackApiResponse = {
+  title: string;
+  artist: string;
+  coverUrl: string;
+  sourceUrl: string;
+  albumId?: string | null;
+  albumName?: string | null;
+};

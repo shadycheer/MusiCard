@@ -8,7 +8,7 @@ import { fetchSongDetailViaWeapi } from './neteaseWeapi';
 
 type UpstreamFields = Pick<
   CachedTrack,
-  'title' | 'artist' | 'coverUrl' | 'sourceUrl' | 'locale'
+  'title' | 'artist' | 'coverUrl' | 'sourceUrl' | 'locale' | 'albumId' | 'albumName'
 >;
 
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -74,7 +74,11 @@ export function bucketToHeader(bucket: string | null): string {
 type SpotifyApiTrack = {
   name: string;
   artists: Array<{ name: string }>;
-  album: { images: Array<{ url: string; height: number }> };
+  album: {
+    id: string;
+    name: string;
+    images: Array<{ url: string; height: number }>;
+  };
   external_urls: { spotify: string };
 };
 
@@ -99,6 +103,8 @@ export async function fetchSpotifyTrack(
     artist: track.artists.map((a) => a.name).join(', '),
     coverUrl: cover?.url ?? '',
     sourceUrl: track.external_urls.spotify,
+    albumId: track.album.id,
+    albumName: track.album.name,
   };
 }
 
@@ -107,6 +113,8 @@ type ItunesResult = {
   artistName: string;
   artworkUrl100: string;
   trackViewUrl?: string;
+  collectionId?: number;
+  collectionName?: string;
 };
 
 export async function fetchAppleMusicTrack(
@@ -136,6 +144,8 @@ export async function fetchAppleMusicTrack(
     artist: item.artistName,
     coverUrl,
     sourceUrl: item.trackViewUrl ?? fallbackSourceUrl,
+    albumId: item.collectionId ? String(item.collectionId) : undefined,
+    albumName: item.collectionName ?? undefined,
   };
 }
 
@@ -151,5 +161,7 @@ export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields>
     artist: track.artist,
     coverUrl: track.coverUrl,
     sourceUrl: `https://music.163.com/song?id=${songId}`,
+    albumId: track.albumId || undefined,
+    albumName: track.albumName || undefined,
   };
 }
