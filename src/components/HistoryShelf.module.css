@@ -1,28 +1,27 @@
-/* HistoryShelf — vinyl-collection inspired "recent tracks" panel.
+/* HistoryShelf — horizontal vinyl-rail layout.
 
-   Visual reference: physical vinyl shelves (album covers leaning on
-   horizontal felt rails), translated to a dark-glass digital aesthetic.
-   Rail effect: subtle bottom hairline beneath each row + soft shadow
-   under each cover suggests a physical surface, without literally
-   skeuomorphing wood/felt. */
+   Reference: a physical record shelf (records standing upright on a
+   horizontal board). Translated to a single horizontal scroll rail:
+     - rail itself: thin row of square covers, no card chrome around it
+     - shelf board: hairline below the rail with a soft drop shadow,
+       so covers visually "sit on" the surface
+     - edge fade: mask-image gradients hint at off-screen content when
+       more than ~5 records exist
+   Width tracks content (no fixed panel max-width) so a single record
+   doesn't get marooned in a half-empty box. */
 
 .shelf {
-  width: 100%;
-  max-width: 520px;
-  margin-top: 36px;
-  padding: 18px 18px 20px;
-  background: rgba(20, 20, 26, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  backdrop-filter: blur(22px) saturate(140%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  width: max-content;
+  max-width: 100%;
+  margin-top: 28px;
+  padding: 4px 0 2px;
   animation: shelfFadeIn 520ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 
 @keyframes shelfFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -34,41 +33,100 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin-bottom: 14px;
-  padding: 0 2px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 12px;
+  padding: 0 6px;
 }
 
 .shelfLabel {
-  color: var(--text);
+  color: var(--text-mute);
   font-family: var(--font-ui-stack);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 650;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .shelfCount {
   color: var(--text-mute);
   font-family: var(--font-mono-stack);
-  font-size: 11px;
+  font-size: 10px;
+  opacity: 0.55;
 }
 
-/* 3-column grid. With max-width 520 and 18*2 padding, each row of 3
-   gets ~152px per slot with 6px gaps. Square aspect-ratio frames the
-   cover; meta text sits below the cover (revealed on hover). */
-.shelfGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px 12px;
+/* Horizontal rail. overflow-x scroll + overflow-y visible so hover-lift
+   transforms don't get clipped. Mask gradient at left/right edges fades
+   covers as they approach the boundary, suggesting "more off-screen". */
+.shelfRail {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  /* Padding > mask fade distance so the first/last cover is fully opaque
+     when not scrolled. The mask only "eats into" the empty gutter, not
+     the covers themselves. */
+  padding: 6px 28px 14px;
+  /* Cap the visible width so the rail scrolls horizontally when the
+     library grows past ~5 items. With cover=128 + gap=14 + padding=28*2,
+     ~5 covers plus a sixth half-shown is a good "there's more" tease. */
+  max-width: min(100vw - 48px, 800px);
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 18px,
+    #000 calc(100% - 18px),
+    transparent 100%
+  );
+}
+
+/* Hide native scrollbar without losing scrollability. The fading edges
+   already telegraph that more content exists. */
+.shelfRail::-webkit-scrollbar {
+  display: none;
+}
+.shelfRail {
+  scrollbar-width: none;
+}
+
+/* "Shelf board" — visible hairline + ambient halo simulates the surface
+   the records stand on. Sits below the rail's padding-bottom so the
+   covers' own drop-shadows visually merge with it. Two stacked
+   gradients (line + glow) give it physical-surface presence without
+   looking like a UI divider. */
+.shelfBoard {
+  position: relative;
+  height: 2px;
+  margin: -2px 16px 0;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    rgba(255, 255, 255, 0.22) 12%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0.22) 88%,
+    transparent 100%
+  );
+  border-radius: 1px;
+  box-shadow:
+    0 0 12px rgba(255, 255, 255, 0.06),
+    0 8px 18px -10px rgba(0, 0, 0, 0.9);
 }
 
 .shelfCell {
   position: relative;
+  flex: 0 0 auto;
+  width: 128px;
+  scroll-snap-align: start;
 }
 
-/* Each item is a vertical stack: cover (square) + meta (truncated
-   title + artist, only shown on hover so the row stays clean). */
 .shelfItem {
   width: 100%;
   display: flex;
@@ -78,12 +136,11 @@
   border: none;
   cursor: pointer;
   text-align: left;
-  /* Lift on hover — sells the "physical record on a shelf" feel. */
-  transition: transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .shelfItem:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
 }
 
 .shelfCover {
@@ -91,47 +148,41 @@
   aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
-  border-radius: 6px;
-  /* Inner shadow at the spine edge + drop shadow underneath = "real
-     object on a surface" feel. */
+  border-radius: 4px;
+  /* Inner highlight at the spine + warm drop shadow under = "real object
+     resting on a surface". Shadow intensity bumps on hover to sell the
+     "picking it up" interaction. */
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.08),
-    0 6px 14px rgba(0, 0, 0, 0.4),
-    0 1px 2px rgba(0, 0, 0, 0.6);
-  transition: box-shadow 0.18s ease;
+    inset 1px 0 0 rgba(255, 255, 255, 0.10),
+    0 8px 16px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.7);
+  transition: box-shadow 0.22s ease;
 }
 
 .shelfItem:hover .shelfCover {
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.14),
-    0 12px 24px rgba(0, 0, 0, 0.55),
-    0 2px 4px rgba(0, 0, 0, 0.7);
+    inset 1px 0 0 rgba(255, 255, 255, 0.18),
+    0 14px 26px rgba(0, 0, 0, 0.65),
+    0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
+/* Meta is ALWAYS shown (not hover-gated). Covers alone aren't reliably
+   identifiable at 128px, and gating identity behind hover punishes
+   touch devices. Compact line-height + ellipsis keeps the row tidy. */
 .shelfMeta {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-top: 7px;
+  margin-top: 8px;
   min-width: 0;
-  opacity: 0;
-  transform: translateY(-3px);
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-
-.shelfItem:hover .shelfMeta {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .shelfTitle {
   color: var(--text);
   font-family: var(--font-ui-stack);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -140,30 +191,31 @@
 .shelfArtist {
   color: var(--text-mute);
   font-family: var(--font-ui-stack);
-  font-size: 11px;
-  line-height: 1.3;
+  font-size: 10px;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.72;
 }
 
-/* Remove button — appears on cell hover, top-right corner of the
-   cover. Small circle with × so user can prune the shelf. */
+/* Remove (×) — appears on cell hover, anchored to cover's top-right.
+   Slightly tighter offset than the grid version since the rail is denser. */
 .shelfRemove {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 20px;
-  height: 20px;
+  top: -5px;
+  right: -5px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   color: var(--text);
-  background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 50%;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -171,7 +223,8 @@
   transition:
     opacity 0.14s ease,
     transform 0.14s ease,
-    background 0.14s ease;
+    background 0.14s ease,
+    border-color 0.14s ease;
   z-index: 2;
 }
 
@@ -181,16 +234,23 @@
 }
 
 .shelfRemove:hover {
-  background: rgba(0, 0, 0, 0.92);
-  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(0, 0, 0, 0.95);
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 @media (max-width: 540px) {
-  .shelfGrid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px 8px;
+  .shelfRail {
+    gap: 12px;
+    padding: 6px 14px 12px;
+    max-width: calc(100vw - 32px);
   }
-  .shelf {
-    padding: 14px 12px 16px;
+  .shelfCell {
+    width: 108px;
+  }
+  .shelfTitle {
+    font-size: 10.5px;
+  }
+  .shelfArtist {
+    font-size: 9.5px;
   }
 }

@@ -14,7 +14,8 @@ import SongDNAPanel, { type SongDNAState } from '@/components/SongDNAPanel';
 import SongDnaDoneBadge from '@/components/SongDnaDoneBadge';
 import HistoryShelf from '@/components/HistoryShelf';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
-import { useTrackHistory } from '@/hooks/useTrackHistory';
+import { getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
+import type { Track } from '@/lib/songlink';
 import { generateQrSvg } from '@/lib/qr';
 import { renderCardCanvas } from '@/lib/renderCardCanvas';
 import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lrclib';
@@ -105,7 +106,15 @@ async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> 
 export default function Page() {
   const [input, setInput] = useState('');
   const { state, refetch } = useTrackInfo(input);
-  const { history, add: addToHistory, remove: removeFromHistory } = useTrackHistory();
+  /* `recent` is derived from trackCache (single source of truth — the
+     resolve-time cache IS the visit log). We snapshot into local state
+     for cheap re-renders; refresh after successful fetches and after
+     remove-clicks. No event bus needed since these are the only two
+     places the cache changes from this component's perspective. */
+  const [recent, setRecent] = useState<Track[]>([]);
+  useEffect(() => {
+    setRecent(getRecentTracks(9));
+  }, []);
   const [qrSvg, setQrSvg] = useState<string>('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -231,13 +240,14 @@ export default function Page() {
       if (!cancelled) setQrSvg(svg);
     });
     recordEvent('view');
-    /* Persist into local history so the home shelf shows this track
-       next time. Dedupes by sourceUrl and bubbles to position 0. */
-    addToHistory(state.track);
+    /* Resolve already wrote the track into trackCache (see
+       lib/songlink.ts). Re-snapshot the cache so the home shelf will
+       show this track on next return-to-idle. */
+    setRecent(getRecentTracks(9));
     return () => {
       cancelled = true;
     };
-  }, [state, addToHistory]);
+  }, [state]);
 
   useEffect(() => {
     // Track change → abort any in-flight song-dna stream to free the
@@ -336,6 +346,11 @@ export default function Page() {
       return [...prev, idx];
     });
   };
+
+  const handleRemoveRecent = useCallback((sourceUrl: string) => {
+    removeCachedTrack(sourceUrl);
+    setRecent(getRecentTracks(9));
+  }, []);
 
   const closeFallback = () => {
     setFallbackImageUrl((prev) => {
@@ -561,7 +576,7 @@ export default function Page() {
       <main
         className={styles.main}
         data-stage={stage}
-        data-has-history={stage === 'idle' && history.length > 0 ? 'true' : 'false'}
+        data-has-history={stage === 'idle' && recent.length > 0 ? 'true' : 'false'}
       >
         <div className={styles.inputBlock}>
           <label className={styles.inputLabel} htmlFor="track-input">
@@ -580,11 +595,11 @@ export default function Page() {
           )}
         </div>
 
-        {stage === 'idle' && history.length > 0 && (
+        {stage === 'idle' && recent.length > 0 && (
           <HistoryShelf
-            history={history}
+            tracks={recent}
             onPick={(url) => setInput(url)}
-            onRemove={removeFromHistory}
+            onRemove={handleRemoveRecent}
           />
         )}
 
