@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import HistoryShelf from '@/components/HistoryShelf';
 import { parseMusicUrl } from '@/lib/musicUrl';
 import { buildSlug, trackToSlug } from '@/lib/slug';
-import { backfillAlbumMeta, getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
+import { getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
 import type { Track } from '@/lib/songlink';
 import styles from './page.module.css';
 
@@ -21,13 +21,6 @@ export default function Page() {
   const [recent, setRecent] = useState<Track[]>([]);
   useEffect(() => {
     setRecent(getRecentTracks(12));
-    /* Backfill stale entries (cached before albumName existed) so the
-       shelf's same-album grouping kicks in for legacy data. Fire-and-
-       forget — UI shows what's there now, refreshes once heals land. */
-    void (async () => {
-      const updated = await backfillAlbumMeta(12);
-      if (updated) setRecent(getRecentTracks(12));
-    })();
   }, []);
 
   /* Validate + navigate on input change. Debounced so a paste-and-edit

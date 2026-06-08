@@ -8,10 +8,9 @@ export type Track = {
   coverUrl: string;
   sourceUrl: string;
   platform: Platform;
-  /* Album metadata — optional because (a) earlier cached entries in
-     localStorage / DB pre-date this field and (b) some upstream
-     responses are missing it. When present, used by HistoryShelf to
-     group same-album tracks into one card. */
+  /* Optional — some upstream responses don't carry album info (e.g.
+     NetEase singles). When present, HistoryShelf groups same-album
+     tracks into one card. */
   albumId?: string;
   albumName?: string;
 };
@@ -88,8 +87,8 @@ async function fetchNeteaseTrack(
 }
 
 /* Shared response shape — all three /api/*-track endpoints return
-   the same flat fields. albumId/albumName are nullable because pre-
-   schema-bump cached rows + some upstream responses lack them. */
+   the same flat fields. albumId/albumName are nullable because some
+   upstream responses don't carry album info. */
 type TrackApiResponse = {
   title: string;
   artist: string;

@@ -16,35 +16,16 @@ export type CachedTrack = {
   artist: string;
   coverUrl: string;
   sourceUrl: string;
-  /* Album metadata — optional because rows cached before the
-     2026-06-09 schema bump don't have them, and not every upstream
-     populates them (e.g. NetEase singles with no album entry). The
-     UI shelf groups by (artist + albumName) when both are present. */
+  /* Optional — NetEase singles sometimes have no album entry. The shelf
+     groups by (artist + albumName) only when both are present. */
   albumId?: string | null;
   albumName?: string | null;
 };
-
-/* Run once per cold start to bring older deployments' tracks table
-   up to schema. Idempotent — Neon/Postgres "ADD COLUMN IF NOT EXISTS"
-   is a no-op when the column already exists. Cheaper than a separate
-   migration framework for a 2-column add. */
-let schemaEnsured = false;
-async function ensureTracksSchema(): Promise<void> {
-  if (schemaEnsured || !sql) return;
-  try {
-    await sql`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS album_id TEXT`;
-    await sql`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS album_name TEXT`;
-    schemaEnsured = true;
-  } catch (err) {
-    console.error('[db] ensureTracksSchema failed:', err);
-  }
-}
 
 export async function getCachedTrack(
   cacheKey: string,
 ): Promise<CachedTrack | null> {
   if (!sql) return null;
-  await ensureTracksSchema();
   try {
     const rows = (await sql`
       SELECT platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name
@@ -127,41 +108,6 @@ export async function listRefreshCandidates(limit: number): Promise<RefreshCandi
   }
 }
 
-/** Find rows whose album metadata is missing — rows written before the
- *  2026-06-09 schema bump have album_id/album_name NULL. The album-backfill
- *  cron consumes this to lazily re-fetch upstream and fill them in. */
-export async function listAlbumBackfillCandidates(
-  limit: number,
-): Promise<RefreshCandidate[]> {
-  if (!sql) return [];
-  await ensureTracksSchema();
-  try {
-    const rows = (await sql`
-      SELECT cache_key, platform, external_id, country, locale
-      FROM tracks
-      WHERE album_name IS NULL
-      ORDER BY last_hit_at DESC NULLS LAST
-      LIMIT ${limit}
-    `) as Array<{
-      cache_key: string;
-      platform: Platform;
-      external_id: string;
-      country: string | null;
-      locale: string | null;
-    }>;
-    return rows.map((r) => ({
-      cacheKey: r.cache_key,
-      platform: r.platform,
-      externalId: r.external_id,
-      country: r.country,
-      locale: r.locale,
-    }));
-  } catch (err) {
-    console.error('[db] listAlbumBackfillCandidates failed:', err);
-    return [];
-  }
-}
-
 /** Update metadata for an existing cached track without touching hit_count.
  *  Used by the cron refresher — the row was already counted when first cached. */
 export async function updateCachedTrack(
@@ -169,7 +115,6 @@ export async function updateCachedTrack(
   track: CachedTrack,
 ): Promise<void> {
   if (!sql) return;
-  await ensureTracksSchema();
   try {
     await sql`
       UPDATE tracks SET
@@ -193,7 +138,6 @@ export async function setCachedTrack(
   track: CachedTrack,
 ): Promise<void> {
   if (!sql) return;
-  await ensureTracksSchema();
   try {
     await sql`
       INSERT INTO tracks

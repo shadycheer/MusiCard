@@ -14,12 +14,7 @@ export async function GET(request: NextRequest) {
   const cacheKey = `spotify:${bucket}:${trackId}`;
 
   const cached = await getCachedTrack(cacheKey);
-  /* Self-heal: rows written before the 2026-06-09 album-schema bump have
-     albumName=null. Treat them as stale and re-fetch upstream so the
-     shelf's same-album grouping works. setCachedTrack will overwrite. */
-  if (cached && cached.albumName) {
-    return NextResponse.json(toResponse(cached));
-  }
+  if (cached) return NextResponse.json(toResponse(cached));
 
   try {
     const upstream = await fetchSpotifyTrack(trackId, acceptLanguage);
@@ -32,8 +27,6 @@ export async function GET(request: NextRequest) {
     void setCachedTrack(cacheKey, fresh);
     return NextResponse.json(toResponse(fresh));
   } catch (err) {
-    // Upstream failed — return stale cache if we have it rather than 500.
-    if (cached) return NextResponse.json(toResponse(cached));
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'unknown error' },
       { status: 500 },
