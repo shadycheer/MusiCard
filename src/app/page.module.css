@@ -53,26 +53,31 @@
   align-items: center;
   gap: 24px;
   padding: 14px 28px;
-  /* Cold: fully transparent, no chrome. At the landing zone there's
-     nothing behind the header to blur — a visible glass surface would
-     just read as a dark stripe with no purpose. The .topBarScrolled
-     variant flips on once the user scrolls past the hero, by which
-     point the cover-backdrop / article text is sliding underneath
-     and a real frosted-glass treatment becomes worth showing. */
+  /* Cold: fully transparent, no chrome. The .topBarScrolled override
+     flips on the frosted glass once content scrolls underneath.
+     IMPORTANT: backdrop-filter must be DECLARED in both rules (even
+     as 'none' here) — Lightning CSS in Next.js 16 will strip the
+     override from .topBarScrolled as "dead code" if the base rule
+     doesn't declare the property at all. Same goes for the -webkit-
+     prefix. Without both, prod ships with no blur whatsoever. */
   background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   transition:
     background 240ms ease,
+    -webkit-backdrop-filter 240ms ease,
     backdrop-filter 240ms ease;
 }
 
 .topBarScrolled {
-  /* True frosted glass — light tint so the BLUR is the dominant
-     visual, not a dark wash. No border or shadow on purpose: the
-     blur + tint create their own soft edge against scrolling content
-     underneath, and a hard line would break the glass illusion. */
-  background: rgba(20, 20, 26, 0.42);
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  /* True frosted glass. Heavier tint (0.62) so content behind reads
+     as definitively-masked, not "see-through with a hint of darken";
+     strong blur (40px) so even sharp text becomes a soft wash. No
+     border or shadow on purpose — the blur + tint create their own
+     soft edge against scrolling content. */
+  background: rgba(14, 14, 18, 0.62);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
 }
 
 .topBar > .brand {
