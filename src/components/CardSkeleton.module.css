@@ -62,18 +62,6 @@
 .cardQq {
   padding: 20px;
   gap: 16px;
-  background: #FAF7EE;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* QQ skeleton sits on a cream background, so its placeholders need a
-   darker shimmer tint than the dark-bg variants. */
-.cardQq .coverSquare,
-.cardQq .titleBar,
-.cardQq .artistBar,
-.cardQq .brandQq,
-.cardQq .qr {
-  background: rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Cover slots ──────────────────────────────────────────────────── */
