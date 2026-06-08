@@ -274,56 +274,73 @@ export default function Page() {
         ? sourceUrl.match(/[?&]id=(\d+)/)?.[1]
         : undefined;
 
+    /* Race orchestration — fire LRCLIB and AI in parallel rather than
+       serializing AI after LRCLIB's (potentially 8s) timeout.
+         - Both requests get their own AbortController so we can kill
+           the loser independently of the overall effect cleanup.
+         - LRCLIB is authoritative when it hits, so we always WAIT for
+           LRCLIB first and only fall back to AI on lrclib-miss /
+           network error. AI was kicked off at t=0 in parallel, so by
+           the time we need its result it's already several seconds
+           into work — no added latency on the miss path.
+         - On LRCLIB hit, we abort AI immediately to free up upstream
+           tokens (OpenRouter charges per produced token, so an aborted
+           in-flight call costs ~hundreds of tokens, not the full call). */
+    const lrclibCtrl = new AbortController();
+    const aiCtrl = new AbortController();
+    ctrl.signal.addEventListener('abort', () => {
+      lrclibCtrl.abort();
+      aiCtrl.abort();
+    });
+
+    const lrclibP = fetchLyricsLrclib(title, artist, lrclibCtrl.signal, neteaseId)
+      .catch((err) => {
+        if (lrclibCtrl.signal.aborted) return null;
+        if (err instanceof DOMException && err.name === 'AbortError') return null;
+        return null;
+      });
+    const aiP = fetchLyricsAi(title, artist, aiCtrl.signal).catch((err) => {
+      if (aiCtrl.signal.aborted) return null;
+      if (err instanceof DOMException && err.name === 'AbortError') return null;
+      return null;
+    });
+
     (async () => {
-      let shouldTryAi = false;
+      const first = await lrclibP;
+      if (ctrl.signal.aborted) return;
 
-      try {
-        const first = await fetchLyricsLrclib(title, artist, ctrl.signal, neteaseId);
-        if (ctrl.signal.aborted) return;
-
-        // Terminal outcomes from LRCLIB phase. NetEase native hits get
-        // tagged as 'lrclib' for the UI's purpose — both are authoritative
-        // (the AI badge is only shown for 'ai' source).
+      // LRCLIB authoritative hits (lrclib / netease / cached-ai).
+      if (first) {
         if (
           (first.source === 'netease' || first.source === 'lrclib') &&
           first.lines &&
           first.lines.length > 0
         ) {
+          aiCtrl.abort();
           setLyricsState({ kind: 'found', lines: first.lines, source: 'lrclib' });
           return;
         }
         if (first.source === 'ai' && first.lines && first.lines.length > 0) {
+          aiCtrl.abort();
           setLyricsState({ kind: 'found', lines: first.lines, source: 'ai' });
           return;
         }
         if (first.source === 'ai-miss') {
+          // Cached AI verdict says no lyrics exist — no point waiting for AI.
+          aiCtrl.abort();
           setLyricsState({ kind: 'not-found' });
           return;
         }
-
-        shouldTryAi = true;
-      } catch (err) {
-        if (ctrl.signal.aborted) return;
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        // LRCLIB being slow/down should not end the flow; AI is the fallback.
-        shouldTryAi = true;
       }
 
-      if (shouldTryAi) {
-        setLyricsState({ kind: 'ai-searching' });
-      }
-
-      try {
-        const second = await fetchLyricsAi(title, artist, ctrl.signal);
-        if (ctrl.signal.aborted) return;
-        if (second.lines && second.lines.length > 0) {
-          setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
-        } else {
-          setLyricsState({ kind: 'not-found' });
-        }
-      } catch (err) {
-        if (ctrl.signal.aborted) return;
-        if (err instanceof DOMException && err.name === 'AbortError') return;
+      // LRCLIB missed (lrclib-miss / network error). AI has been running
+      // in parallel; just await its result.
+      setLyricsState({ kind: 'ai-searching' });
+      const second = await aiP;
+      if (ctrl.signal.aborted) return;
+      if (second && second.lines && second.lines.length > 0) {
+        setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
+      } else {
         setLyricsState({ kind: 'not-found' });
       }
     })();
