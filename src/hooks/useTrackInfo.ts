@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseMusicUrl } from '../lib/musicUrl';
+import type { Platform } from '../lib/musicUrl';
 import { fetchTrack, type Track } from '../lib/songlink';
 
 export type FetchState =
   | { kind: 'idle' }
   | { kind: 'invalid'; message: string }
-  | { kind: 'loading' }
+  | { kind: 'loading'; platform: Platform }
   | { kind: 'success'; track: Track }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; platform?: Platform };
 
 export function useTrackInfo(input: string): { state: FetchState; refetch: () => void } {
   const [state, setState] = useState<FetchState>({ kind: 'idle' });
@@ -33,11 +34,12 @@ export function useTrackInfo(input: string): { state: FetchState; refetch: () =>
       return;
     }
 
+    const platform = parsed.platform;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    setState({ kind: 'loading' });
+    setState({ kind: 'loading', platform });
 
-    fetchTrack(parsed.canonicalUrl, parsed.platform, ctrl.signal)
+    fetchTrack(parsed.canonicalUrl, platform, ctrl.signal)
       .then((track) => {
         if (!ctrl.signal.aborted) setState({ kind: 'success', track });
       })
@@ -46,6 +48,7 @@ export function useTrackInfo(input: string): { state: FetchState; refetch: () =>
         setState({
           kind: 'error',
           message: err instanceof Error ? err.message : '拿不到歌曲信息',
+          platform,
         });
       });
   }, []);

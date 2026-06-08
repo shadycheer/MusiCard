@@ -4,20 +4,104 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: transparent;
   color: var(--text);
 }
 
+/* Success-state cover backdrop: the current track's cover, scaled up and
+   heavily blurred so the page picks up the song's color identity. Sits
+   above the body's cover-wall but below the actual UI. */
+.coverBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(72px) saturate(1.25);
+  transform: scale(1.18);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: coverFade 720ms ease-out backwards;
+}
+
+@keyframes coverFade {
+  from {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+  to {
+    opacity: 0.55;
+    transform: scale(1.18);
+  }
+}
+
+/* ─── Top bar ───────────────────────────────────────────────────────── */
+
 .topBar {
-  min-height: 60px;
+  /* Sticky — stays in view while the long SONG-DNA essay scrolls past.
+     Higher z than the sticky card preview so the bar sits above it. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  min-height: 56px;
+  /* Three-column grid: brand | center label | icon. The 1fr | auto | 1fr
+     pattern keeps the center label mathematically centered regardless
+     of brand / icon widths (CSS, no JS). */
   display: grid;
-  grid-template-columns: 1fr minmax(260px, 440px) 1fr;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 24px;
-  padding: 12px 28px;
-  border-bottom: 1px solid var(--hairline);
-  background: rgba(5, 5, 7, 0.96);
-  backdrop-filter: blur(12px);
+  padding: 14px 28px;
+  /* Cold: fully transparent so the hero input + cover backdrop read
+     uninterrupted. Once the user scrolls past the input zone, the
+     parent flips on .topBarScrolled which adds the glass — without
+     it the brand / track-label would visually collide with cards
+     and article text sliding past underneath. */
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background 220ms ease,
+    backdrop-filter 220ms ease,
+    border-color 220ms ease;
+}
+
+.topBarScrolled {
+  background: rgba(10, 10, 12, 0.55);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.topBar > .brand {
+  justify-self: start;
+}
+
+.topBar > .iconLink {
+  justify-self: end;
+}
+
+/* Single-line track label — mounted whenever a track is loaded,
+   fades in only after scroll so the cold header reads as brand-only.
+   No layout shift since the grid track is `auto`-sized and the label
+   is always present (just transparent). */
+.topBarTrack {
+  min-width: 0;
+  max-width: 50vw;
+  color: var(--text);
+  font-family: var(--font-ui-stack);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.topBarTrackVisible {
+  opacity: 1;
 }
 
 .brand {
@@ -39,7 +123,7 @@
     rgba(255, 255, 255, 0.55) 55%,
     rgba(255, 255, 255, 0.15) 100%
   );
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
   flex: 0 0 auto;
 }
 
@@ -49,26 +133,57 @@
   font-weight: 650;
 }
 
-.topLinks {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.topLink {
+.iconLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   color: var(--text-soft);
+  background: transparent;
+  border-radius: 50%;
   text-decoration: none;
-  font-family: var(--font-ui-stack);
-  font-size: 13px;
+  transition:
+    color 0.14s ease,
+    background 0.14s ease;
 }
 
-.topLink:hover {
+.iconLink:hover {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.inputWrap {
+/* ─── Main stage ────────────────────────────────────────────────────── */
+
+.main {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 32px 28px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  transition: padding-top 560ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.main[data-stage='idle'] {
+  padding-top: calc(38vh - 80px);
+  gap: 0;
+}
+
+/* ─── Input block ───────────────────────────────────────────────────── */
+
+.inputBlock {
+  width: 100%;
+  max-width: 520px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .inputLabel {
@@ -85,19 +200,21 @@
 
 .input {
   width: 100%;
-  min-width: 0;
-  height: 38px;
-  padding: 0 14px;
-  background: var(--surface);
+  height: 48px;
+  padding: 0 16px;
   color: var(--text);
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
+  background: rgba(20, 20, 26, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
   outline: none;
   font-family: var(--font-ui-stack);
-  font-size: 13.5px;
+  font-size: 14px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   transition:
-    border-color 0.14s ease,
-    background 0.14s ease;
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .input::placeholder {
@@ -105,34 +222,96 @@
 }
 
 .input:focus {
-  background: var(--surface-soft);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(28, 28, 36, 0.72);
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
 }
 
 .inputError {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 6px);
   margin: 0;
   color: #ff9a9a;
   font-family: var(--font-ui-stack);
   font-size: 12px;
+  line-height: 1.5;
 }
 
-.main {
-  flex: 1;
+.main[data-stage='idle'] .inputBlock {
+  animation: settleCenter 420ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+@keyframes settleCenter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Loading & error centered slot ─────────────────────────────────── */
+
+.centeredCard {
   width: 100%;
-  max-width: 1360px;
-  margin: 0 auto;
-  padding: 28px 28px 56px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: fadeUp 480ms 120ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 
-.workArea,
-.statusLayout {
+.centeredHint {
+  margin: 0;
+  color: var(--text-mute);
+  font-family: var(--font-ui-stack);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Per-platform card skeletons live in CardSkeleton.module.css. The error
+   state borrows roughly the same outer footprint so the layout doesn't
+   jump if a fetch fails mid-load. */
+.errorPreview {
+  width: 320px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 26, 0.6);
+  border: 1px solid rgba(255, 100, 100, 0.22);
+  border-radius: 14px;
+  color: #ff9a9a;
+  font-size: 14px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ─── Success: 2-col workArea ───────────────────────────────────────── */
+
+.workArea {
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(380px, 0.95fr) minmax(420px, 1.05fr);
+  /* Left column hugs the 320px card (with breathing room); right column
+     is capped at 640px so the essay text doesn't run a punishing 970px
+     wide on large viewports. The whole grid centers in .main. */
+  grid-template-columns: 360px minmax(0, 640px);
   gap: 28px;
   align-items: start;
+  justify-content: center;
 }
 
 .previewPane {
@@ -140,15 +319,36 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 0;
-  background: transparent;
-  border: none;
+  animation: cardSlideLeft 560ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  /* Keep the card glued in view while the right column (lyrics +
+     SONG-DNA essay) scrolls past — saves the user from losing visual
+     anchor when reading a long story. 88px = topBar (56) + 32px gap
+     so the card reads as floating below the header, not glued to it. */
+  position: sticky;
+  top: 88px;
+  align-self: flex-start;
+}
+
+@keyframes cardSlideLeft {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .cardFrame {
   max-width: min(100%, 420px);
-  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.5));
+  /* Rounds the on-screen preview to match the panel/input/glass aesthetic.
+     The exported PNG stays sharp-cornered: renderCardCanvas builds the
+     image from data with ctx.drawImage, not from this DOM, so this CSS
+     mask never touches the download path. */
+  border-radius: 14px;
+  overflow: hidden;
+  filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.55));
 }
 
 .previewActions {
@@ -156,120 +356,47 @@
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  margin-top: 28px;
-}
-
-.previewActions .primary {
-  padding: 0 22px;
-}
-
-/* ─── Empty state hero ─────────────────────────────────────── */
-
-.hero {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 64px 0 48px;
-}
-
-.heroEyebrow {
-  margin: 0 0 14px;
-  color: var(--text-faint);
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.heroTitle {
-  margin: 0 0 18px;
-  color: var(--text);
-  font-size: 34px;
-  font-weight: 650;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-}
-
-.heroSubtitle {
-  margin: 0 0 44px;
-  max-width: 560px;
-  color: var(--text-soft);
-  font-size: 15.5px;
-  line-height: 1.7;
-}
-
-.heroSteps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.heroStep {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-}
-
-.heroStepIndex {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border-radius: 50%;
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.heroStepTitle {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.heroStepDesc {
-  margin: 0;
-  color: var(--text-mute);
-  font-size: 13px;
-  line-height: 1.6;
+  margin-top: 16px;
 }
 
 .panelsCol {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  animation: panelsReveal 600ms 220ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 
-.panel,
-.statusPanel {
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
+@keyframes panelsReveal {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
+/* Glass-panel treatment — the cover-wall and per-track backdrop show
+   through, but the panel still has enough body to host dense text. */
 .panel {
+  background: rgba(20, 20, 26, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .panelHead {
-  min-height: 50px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 0 18px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .panelTitle {
@@ -290,52 +417,61 @@
   padding: 18px;
 }
 
+/* ─── Buttons ───────────────────────────────────────────────────────── */
+
 .primary,
 .secondary {
-  height: 40px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  gap: 8px;
+  border-radius: 999px;
   font-family: var(--font-ui-stack);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
   transition:
     background 0.14s ease,
     border-color 0.14s ease,
-    color 0.14s ease;
+    color 0.14s ease,
+    transform 0.14s ease;
 }
 
+/* Lower-key glass pill — replaces the loud white slab that dominated the
+   card before. Picks up the cover-wall behind via backdrop-filter. */
 .primary {
-  background: var(--accent);
-  color: #080808;
-  border: 1px solid var(--accent);
+  padding: 0 18px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
 }
 
 .primary:disabled {
-  background: var(--surface);
-  border-color: var(--hairline);
   color: var(--text-faint);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
   cursor: not-allowed;
 }
 
 .secondary {
-  align-self: flex-start;
   padding: 0 14px;
-  background: var(--surface);
   color: var(--text);
-  border: 1px solid var(--hairline-strong);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--surface-raised);
-  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .errorText {
@@ -346,72 +482,7 @@
   line-height: 1.5;
 }
 
-.skeleton,
-.errorPreview {
-  width: min(100%, 420px);
-  aspect-ratio: 1 / 1.28;
-  border: 1px solid var(--hairline);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.skeleton {
-  position: relative;
-  overflow: hidden;
-}
-
-.skeleton::before {
-  content: '';
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  top: 24px;
-  height: calc(58% - 24px);
-  border-radius: 6px;
-  background: var(--surface-raised);
-}
-
-.skeleton::after {
-  content: '';
-  position: absolute;
-  left: 24px;
-  bottom: 36px;
-  width: 52%;
-  height: 16px;
-  border-radius: 3px;
-  background: var(--surface-raised);
-}
-
-.statusPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-}
-
-.statusTitle {
-  margin: 0;
-  color: var(--text);
-  font-family: var(--font-ui-stack);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.statusText {
-  margin: 0;
-  color: var(--text-mute);
-  font-family: var(--font-ui-stack);
-  font-size: 13px;
-  line-height: 1.7;
-}
-
-.errorPreview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ff9a9a;
-  font-size: 14px;
-}
+/* ─── Mobile-share fallback modal ───────────────────────────────────── */
 
 .modalBackdrop {
   position: fixed;
@@ -471,65 +542,34 @@
   user-select: auto;
 }
 
-@media (max-width: 1024px) {
-  .topBar {
-    grid-template-columns: 1fr minmax(220px, 1fr) auto;
-  }
+/* ─── Responsive ────────────────────────────────────────────────────── */
 
-  .workArea,
-  .statusLayout {
+@media (max-width: 1024px) {
+  .workArea {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
 
   .previewPane {
-    min-height: auto;
-    padding: 0;
-  }
-
-  .hero {
-    padding: 40px 0 32px;
-  }
-
-  .heroSteps {
-    grid-template-columns: 1fr;
+    animation: fadeUp 480ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+    /* Single-column layout — sticky would just pin the card at the top
+       and push everything else off-screen. Disable on narrow viewports. */
+    position: static;
   }
 }
 
 @media (max-width: 720px) {
   .topBar {
-    grid-template-columns: 1fr auto;
-    align-items: start;
-    gap: 12px;
-    padding: 12px 16px 16px;
-  }
-
-  .inputWrap {
-    grid-column: 1 / -1;
-    grid-template-columns: 1fr;
-    gap: 6px;
-    order: 2;
-  }
-
-  .inputError {
-    position: static;
-    grid-column: 1;
-  }
-
-  .topLinks {
-    justify-content: flex-end;
+    padding: 12px 16px;
   }
 
   .main {
-    padding: 16px 16px 40px;
+    padding: 20px 16px 40px;
+    gap: 24px;
   }
 
-  .workArea,
-  .statusLayout {
-    gap: 16px;
-  }
-
-  .previewPane {
-    padding: 0;
+  .main[data-stage='idle'] {
+    padding-top: calc(30vh - 60px);
   }
 
   .previewActions {
@@ -540,18 +580,5 @@
 
   .primary {
     width: 100%;
-  }
-
-  .panelBody,
-  .statusPanel {
-    padding: 14px;
-  }
-
-  .hero {
-    padding: 24px 0;
-  }
-
-  .heroTitle {
-    font-size: 26px;
   }
 }

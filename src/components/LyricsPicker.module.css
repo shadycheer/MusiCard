@@ -7,6 +7,10 @@
 }
 
 .list {
+  /* Both bounds equal → fixed-height scrolling region. Loading/empty
+     containers below also set the same min-height so the panel doesn't
+     jump as state walks loading → ai-searching → found. */
+  min-height: 320px;
   max-height: 380px;
   display: flex;
   flex-direction: column;
@@ -73,21 +77,20 @@
   color: var(--text);
 }
 
-.badge,
-.badgePlaceholder {
+.checkbox {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
-  display: inline-block;
+  color: rgba(255, 255, 255, 0.32);
+  transition: color 0.14s ease;
 }
 
-.badge {
+.line:hover .checkbox {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lineSelected .checkbox {
   color: var(--accent);
-}
-
-.badgePlaceholder {
-  /* Reserves space so selected/unselected rows align — invisible by design. */
-  visibility: hidden;
 }
 
 .text {
@@ -96,50 +99,20 @@
   word-break: break-word;
 }
 
-.empty {
-  padding: 16px 0;
-  color: var(--text-mute);
-  font-size: 13px;
-  text-align: center;
-}
-
-.textarea {
-  width: 100%;
-  min-height: 140px;
-  padding: 12px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 8px;
-  outline: none;
-  resize: vertical;
-  font-family: var(--font-ui-stack);
-  font-size: 14px;
-  line-height: 1.55;
-  transition:
-    background 0.14s ease,
-    border-color 0.14s ease;
-}
-
-.textarea::placeholder {
-  color: var(--text-faint);
-}
-
-.textarea:focus {
-  background: var(--surface-raised);
-  border-color: rgba(255, 255, 255, 0.28);
-}
-
-.tip,
+/* Empty + loading containers match .list's min-height so transitioning
+   between states doesn't pop the panel taller/shorter. Both center
+   their inner text in the reserved space. */
+.empty,
 .loading {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-mute);
   font-family: var(--font-ui-stack);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.loading {
-  padding: 14px 0;
+  text-align: center;
 }
 
 .aiBadge {

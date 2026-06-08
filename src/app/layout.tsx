@@ -35,6 +35,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://ohmydna.com'),
   title: '音乐分享卡 · 链接人类的，我希望不是链接',
   description: 'Spotify / Apple Music / 网易云 单曲链接生成可分享的高清卡片。',
 };

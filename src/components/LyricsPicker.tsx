@@ -5,13 +5,11 @@ export type LyricsState =
   | { kind: 'loading' }
   | { kind: 'ai-searching' }
   | { kind: 'found'; lines: string[]; source: 'lrclib' | 'ai' }
-  | { kind: 'not-found'; message?: string };
+  | { kind: 'not-found' };
 
 type Props = {
   state: LyricsState;
   lines: string[];
-  manualText: string;
-  onManualTextChange: (text: string) => void;
   selected: number[];
   onToggle: (idx: number) => void;
   maxSelected: number;
@@ -20,8 +18,6 @@ type Props = {
 export default function LyricsPicker({
   state,
   lines,
-  manualText,
-  onManualTextChange,
   selected,
   onToggle,
 }: Props) {
@@ -29,12 +25,7 @@ export default function LyricsPicker({
 
   const isLoading = state.kind === 'loading';
   const isAiSearching = state.kind === 'ai-searching';
-  const isManualMode = state.kind === 'not-found';
   const aiSourced = state.kind === 'found' && state.source === 'ai';
-  const manualTip =
-    state.kind === 'not-found' && state.message
-      ? state.message
-      : '找不到歌词，可手动粘贴';
 
   return (
     <div className={styles.wrap}>
@@ -51,18 +42,6 @@ export default function LyricsPicker({
         </div>
       )}
 
-      {isManualMode && (
-        <>
-          <div className={styles.tip}>{manualTip}</div>
-          <textarea
-            className={styles.textarea}
-            value={manualText}
-            onChange={(e) => onManualTextChange(e.target.value)}
-            placeholder="把歌词粘进来，自动按行分割"
-          />
-        </>
-      )}
-
       {!isLoading && !isAiSearching && lines.length > 0 && (
         <ul className={styles.list}>
           {lines.map((line, i) => {
@@ -74,24 +53,30 @@ export default function LyricsPicker({
                 className={`${styles.line} ${isSelected ? styles.lineSelected : ''}`}
                 onClick={() => onToggle(i)}
               >
-                {isSelected ? (
-                  <svg
-                    className={styles.badge}
-                    viewBox="0 0 16 16"
-                    aria-hidden
-                  >
+                <svg
+                  className={styles.checkbox}
+                  viewBox="0 0 18 18"
+                  aria-hidden
+                >
+                  <circle
+                    cx="9"
+                    cy="9"
+                    r="7.5"
+                    fill={isSelected ? 'currentColor' : 'transparent'}
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                  />
+                  {isSelected && (
                     <path
-                      d="M3.5 8.5l3 3 6-7"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                      d="M5.5 9.2 7.8 11.4 12.5 6.6"
+                      stroke="#0a0a0a"
+                      strokeWidth="1.8"
                       fill="none"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
-                  </svg>
-                ) : (
-                  <span className={styles.badgePlaceholder} aria-hidden />
-                )}
+                  )}
+                </svg>
                 <span className={styles.text}>{line}</span>
               </li>
             );
@@ -99,10 +84,9 @@ export default function LyricsPicker({
         </ul>
       )}
 
-      {!isLoading &&
-        !isAiSearching &&
-        lines.length === 0 &&
-        !isManualMode && <div className={styles.empty}>暂无歌词</div>}
+      {!isLoading && !isAiSearching && lines.length === 0 && (
+        <div className={styles.empty}>暂无歌词</div>
+      )}
     </div>
   );
 }

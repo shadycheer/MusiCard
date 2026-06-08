@@ -1,4 +1,9 @@
-export type LyricsSourceTag = 'lrclib' | 'ai' | 'lrclib-miss' | 'ai-miss';
+export type LyricsSourceTag =
+  | 'lrclib'
+  | 'ai'
+  | 'lrclib-miss'
+  | 'ai-miss'
+  | 'netease';
 
 export type LyricsFetchResult = {
   lines: string[] | null;
@@ -10,9 +15,11 @@ export async function fetchLyricsLrclib(
   track: string,
   artist: string,
   signal?: AbortSignal,
+  neteaseId?: string,
 ): Promise<LyricsFetchResult> {
-  const url = `/api/lyrics?title=${encodeURIComponent(track)}&artist=${encodeURIComponent(artist)}`;
-  const res = await fetch(url, { signal });
+  const params = new URLSearchParams({ title: track, artist });
+  if (neteaseId) params.set('neteaseId', neteaseId);
+  const res = await fetch(`/api/lyrics?${params.toString()}`, { signal });
   if (!res.ok) {
     return {
       lines: null,

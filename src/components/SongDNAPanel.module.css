@@ -1,8 +1,18 @@
-.idle,
-.loading,
-.found,
-.empty,
-.error {
+/* SongDNAPanel — single-stage continuous flow.
+
+   The DNAHelix stays at full size across drift / spinner / checkmark.
+   Only after the badge has migrated to the panel header does the
+   stage container collapse, freeing vertical space for the article.
+
+   Layering inside .helixStage:
+     - .helixCanvasLayer  (WebGL particles; opacity cross-fades out
+       when the SVG badge takes over)
+     - .heroAction        (CTA centered over the helix in idle)
+     - .helixBadgeAnchor  (SVG ✓ rendered at center during the
+       moment the particles fade — same screen position so the
+       transition reads as "particles solidify into a badge") */
+
+.stage {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -10,85 +20,87 @@
   font-family: var(--font-ui-stack);
 }
 
-.idleHint {
-  margin: 0;
-  color: var(--text-mute);
-  font-size: 14px;
-  line-height: 1.7;
+.helixStage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  transition: height 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.action,
-.retryGhost,
-.refreshButton,
-.refreshGhost {
-  align-self: flex-start;
-  min-height: 34px;
-  padding: 0 12px;
+/* Wraps the canvas so we can fade only the particles (not the SVG
+   badge that overlays at the same anchor). 250ms matches the
+   parent's badge-fade-in window — they cross-fade in sync. */
+.helixCanvasLayer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 260ms ease-out;
+}
+
+/* Hero CTA centered on the helix — the click point sits inside the
+   visualization rather than dangling beneath it. */
+.heroAction {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-height: 38px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--hairline-strong);
-  border-radius: 8px;
+  background: rgba(20, 20, 26, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
   font-family: var(--font-ui-stack);
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   cursor: pointer;
+  z-index: 2;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   transition:
     background 0.14s ease,
     border-color 0.14s ease,
-    color 0.14s ease;
+    opacity 320ms ease,
+    transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.action {
-  color: #080808;
-  background: var(--accent);
-  border-color: var(--accent);
-  font-weight: 600;
+.heroAction:hover:not(:disabled) {
+  background: rgba(28, 28, 36, 0.7);
+  border-color: rgba(255, 255, 255, 0.36);
+  transform: translate(-50%, -50%) translateY(-1px);
 }
 
-.action:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
+/* Armed state — button fades + scales slightly down, like it's being
+   absorbed by the visualization rather than dismissed. */
+.heroActionGone {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.92);
 }
 
-.retryGhost:hover,
-.refreshButton:hover,
-.refreshGhost:hover {
-  background: var(--surface-raised);
-  border-color: rgba(255, 255, 255, 0.24);
+/* Anchor that centers the large done-badge over the helix mid-point.
+   pointer-events:none so the badge doesn't intercept clicks on the
+   article about to slide up beneath it. */
+.helixBadgeAnchor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  pointer-events: none;
 }
 
-.loading {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  min-height: 36px;
-}
-
-.loadingPulse {
-  display: inline-flex;
-  gap: 4px;
-}
-
-.loadingDot {
-  width: 5px;
-  height: 5px;
-  background: var(--text-mute);
-}
-
-.loadingText {
-  min-width: 0;
-  color: var(--text-mute);
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ─── Cache strip ─────────────────────────────────────────────────── */
 
 .cacheMeta {
   display: flex;
   align-items: center;
   gap: 8px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: var(--text-mute);
   font-size: 12px;
 }
@@ -98,271 +110,49 @@
   min-width: 0;
 }
 
-.refreshButton,
+/* ─── Ghost buttons (empty/error retry + cache refresh) ──────────── */
+
+.retryGhost,
 .refreshGhost {
+  align-self: flex-start;
   min-height: 30px;
-  color: var(--text-soft);
-  background: transparent;
-  font-size: 12px;
+  padding: 0 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  font-family: var(--font-ui-stack);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
 }
 
 .refreshGhost {
   align-self: flex-end;
-}
-
-.article {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.articleHead {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.articleTitle {
-  margin: 0;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 650;
-  line-height: 1.45;
-}
-
-.articleLead {
-  margin: 0;
+  background: transparent;
   color: var(--text-soft);
-  font-size: 14.5px;
-  line-height: 1.8;
-}
-
-.keyFacts {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.keyFacts ul {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding-left: 18px;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.65;
-}
-
-.articleSection {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.articleSectionTitle {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.takeaway {
-  padding: 12px 0 0;
-}
-
-.takeaway p {
-  margin: 0;
-  color: var(--text-soft);
-  font-size: 14.5px;
-  line-height: 1.8;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.section + .section {
-  padding-top: 20px;
-  border-top: 1px solid var(--hairline);
-}
-
-.sectionTitle {
-  margin: 0;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.005em;
-}
-
-.sectionBody {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.factList {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  column-gap: 16px;
-  row-gap: 8px;
-  margin: 0;
-}
-
-.factRow {
-  display: contents;
-}
-
-.factLabel {
-  margin: 0;
-  padding-top: 1px;
-  color: var(--text-mute);
   font-size: 12px;
 }
 
-.factValue {
-  margin: 0;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.6;
+.retryGhost:hover,
+.refreshGhost:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.26);
 }
 
-.bulletList {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.paragraphBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.paragraphLabel {
-  margin: 0;
-  color: var(--text-mute);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.paragraphText {
-  margin: 0;
-  color: var(--text);
-  font-size: 14.5px;
-  line-height: 1.8;
-}
-
-/* References footer at the bottom of the SongDNA panel — consolidated list
-   of every cited URL, numbered to match the inline ⁽n⁾ superscripts. */
-
-.references {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-  padding-top: 18px;
-  border-top: 1px solid var(--hairline);
-}
-
-.referencesTitle {
-  margin: 0;
-  color: var(--text-mute);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.referencesList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.referenceItem {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  color: var(--text-mute);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.referenceIndex {
-  flex: 0 0 18px;
-  color: var(--text-faint);
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  text-align: right;
-}
-
-.referenceLink {
-  flex: 1;
-  min-width: 0;
-  color: var(--text-soft);
-  text-decoration: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.referenceLink:hover {
-  color: var(--text);
-  text-decoration: underline;
-}
-
-.figure {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 4px 0 0;
-}
-
-.figure img {
-  width: 100%;
-  max-height: 320px;
-  object-fit: contain;
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
-}
-
-.figure figcaption {
-  color: var(--text-mute);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.figureSource {
-  align-self: flex-start;
-  color: var(--text-mute);
-  font-size: 12px;
-  text-decoration: none;
-}
-
-.figureSource:hover {
-  color: var(--text);
-  text-decoration: underline;
-}
+/* ─── Terminal states ─────────────────────────────────────────────── */
 
 .empty,
 .error {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 4px 0;
+  color: var(--text);
+  font-family: var(--font-ui-stack);
   font-size: 14px;
 }
 
@@ -377,19 +167,120 @@
   color: #ff9a9a;
 }
 
+/* ─── Markdown article ────────────────────────────────────────────── */
+
+/* The article element stays mounted across loading→found, so this
+   animation runs once on first appearance (when streaming begins) and
+   never replays. */
+.article {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text);
+  font-family: var(--font-ui-stack);
+  animation: articleSettle 520ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+@keyframes articleSettle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mdH2 {
+  margin: 14px 0 4px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.mdH2:first-child {
+  margin-top: 0;
+}
+
+.mdH3 {
+  margin: 12px 0 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.mdP {
+  margin: 0;
+  color: var(--text);
+  font-size: 14.5px;
+  line-height: 1.85;
+}
+
+.mdList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.mdLi {
+  margin: 0;
+}
+
+.mdLink {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.32);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.14s ease;
+}
+
+.mdLink:hover {
+  text-decoration-color: rgba(255, 255, 255, 0.8);
+}
+
+.mdStrong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.mdEm {
+  color: var(--text);
+  font-style: italic;
+}
+
+.mdHr {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mdCode {
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  font-family: var(--font-mono-stack);
+  font-size: 12.5px;
+}
+
+.mdQuote {
+  margin: 0;
+  padding: 4px 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.18);
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
 @media (max-width: 720px) {
-  .factList {
-    grid-template-columns: 76px 1fr;
-    column-gap: 12px;
-  }
-
-  .articleTitle {
-    font-size: 16px;
-  }
-
-  .paragraphText,
-  .articleLead,
-  .takeaway p {
+  .mdP {
     font-size: 14px;
+    line-height: 1.8;
   }
 }

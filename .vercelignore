@@ -1,0 +1,18 @@
+# Personal planning / spec docs — useful locally, no business at the
+# build server.
+docs/superpowers/
+
+# Local-only screenshots from chrome-devtools MCP sessions.
+.critique-*.png
+.after-*.png
+.songdna-*.png
+.layout-*.png
+.netease-*.png
+.netease-*.txt
+.v2-*.png
+.v3-*.png
+.v4-*.png
+
+# Memory / scratch dirs.
+.superpowers/
+.claude/

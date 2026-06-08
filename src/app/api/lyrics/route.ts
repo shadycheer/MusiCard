@@ -5,6 +5,7 @@ import {
   lyricsCacheKey,
   type LyricsSource,
 } from '@/lib/db';
+import { fetchLyricViaWeapi } from '@/lib/neteaseWeapi';
 
 const LRCLIB_ENDPOINT = 'https://lrclib.net/api/get';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -13,6 +14,22 @@ const AI_MODEL = (process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro').re
   '',
 );
 const LRCLIB_TIMEOUT_MS = 4500;
+
+/* OpenRouter server-side web search — kicked on for the AI phase so the
+   model can actually look songs up instead of having to rely on training
+   memory. The cost overhead (~$0.05/call) is worth it because the AI
+   phase only fires after both NetEase (if applicable) and LRCLIB have
+   already missed — i.e. exactly the niche-track tail where training
+   memory is unreliable. */
+const WEB_SEARCH_TOOL = {
+  type: 'openrouter:web_search',
+  parameters: {
+    engine: 'exa',
+    max_results: 3,
+    max_total_results: 5,
+    search_context_size: 'low',
+  },
+};
 
 type LrcLibResponse = {
   plainLyrics?: string | null;
@@ -34,6 +51,7 @@ type LyricsPayload = {
 export async function GET(request: NextRequest) {
   const title = request.nextUrl.searchParams.get('title');
   const artist = request.nextUrl.searchParams.get('artist');
+  const neteaseId = request.nextUrl.searchParams.get('neteaseId') ?? undefined;
   const phase = request.nextUrl.searchParams.get('phase') ?? 'lrclib';
   if (!title || !artist) {
     return NextResponse.json({ error: 'missing title or artist' }, { status: 400 });
@@ -45,7 +63,7 @@ export async function GET(request: NextRequest) {
   if (phase === 'ai') {
     return handleAiPhase(cacheKey, title, artist, cached);
   }
-  return handleLrclibPhase(cacheKey, title, artist, cached);
+  return handleLrclibPhase(cacheKey, title, artist, cached, neteaseId);
 }
 
 async function handleLrclibPhase(
@@ -53,9 +71,13 @@ async function handleLrclibPhase(
   title: string,
   artist: string,
   cached: { lines: string[]; source: LyricsSource } | null,
+  neteaseId: string | undefined,
 ): Promise<NextResponse<LyricsPayload | { error: string }>> {
   if (cached) {
     // Terminal cache outcomes — return immediately, never re-query.
+    if (cached.source === 'netease') {
+      return NextResponse.json({ lines: cached.lines, source: 'netease' });
+    }
     if (cached.source === 'lrclib') {
       return NextResponse.json({ lines: cached.lines, source: 'lrclib' });
     }
@@ -69,6 +91,22 @@ async function handleLrclibPhase(
     // phase=ai next. Echo it back so the client knows to do so without us
     // re-hitting LRCLIB.
     return NextResponse.json({ lines: null, source: 'lrclib-miss' });
+  }
+
+  // NetEase native lyrics first — authoritative for Chinese/Asian tracks
+  // that LRCLIB doesn't carry. We only attempt this when the URL the user
+  // pasted was a NetEase link (we have the song id); for Spotify / Apple
+  // we skip straight to LRCLIB.
+  if (neteaseId) {
+    try {
+      const lines = await fetchLyricViaWeapi(neteaseId);
+      if (lines && lines.length > 0) {
+        void setCachedLyrics(cacheKey, title, artist, lines, 'netease');
+        return NextResponse.json({ lines, source: 'netease' });
+      }
+    } catch {
+      // Swallow — fall through to LRCLIB rather than failing the request.
+    }
   }
 
   try {
@@ -135,7 +173,7 @@ async function handleAiPhase(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://musi-card-two.vercel.app',
+        'HTTP-Referer': 'https://ohmydna.com',
         'X-Title': 'MusiCard',
       },
       body: JSON.stringify({
@@ -146,6 +184,7 @@ async function handleAiPhase(
         ],
         temperature: 0,
         response_format: { type: 'json_object' },
+        tools: [WEB_SEARCH_TOOL],
       }),
     });
 
@@ -201,12 +240,15 @@ async function handleAiPhase(
 
 const AI_SYSTEM_PROMPT = `你的任务是查找这首歌真实存在的歌词。这些歌词会被显示给用户做分享卡 — 编造或猜的歌词会被发到聊天里造成实际尴尬。
 
+可用工具：
+- web_search：联网搜索"歌名 歌词" / "title lyrics"，优先去 Genius / AZLyrics / Musixmatch / 歌词类网站。冷门歌请务必先搜，不要靠记忆。
+
 严格规则：
-1. 你只能基于你训练时见过的真实歌词作答。不许根据歌名、风格、艺人或常见套路推测歌词。
-2. 不确定就返回 {"hasLyrics": false}。宁缺勿编。
-3. 不要补全或改写不完整记忆中的句子。整句不确定就整段省略；整段不确定就 hasLyrics: false。
+1. 只输出从训练记忆或 web_search 结果里看到的真实歌词，不许根据歌名/风格/艺人推测。
+2. web_search 没找到可靠歌词来源就返回 {"hasLyrics": false}。宁缺勿编。
+3. 不要补全不完整的句子；整句不确定就整段省略；整段不确定就 hasLyrics: false。
 4. 不要把"听起来像副歌"的句子当成真歌词。
-5. 完全不认识这首歌就返回 {"hasLyrics": false}。
+5. 完全找不到这首歌就返回 {"hasLyrics": false}。
 
 输出 JSON：
 - 找到：{"hasLyrics": true, "lines": ["第一行", "第二行", ...]}

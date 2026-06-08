@@ -140,3 +140,51 @@ export async function fetchSongDetailViaWeapi(songId: string): Promise<WeapiTrac
     coverUrl: song.al?.picUrl ?? '',
   };
 }
+
+type WeapiLyricResponse = {
+  code: number;
+  lrc?: { lyric?: string | null };
+  klyric?: { lyric?: string | null };
+  tlyric?: { lyric?: string | null };
+  romalrc?: { lyric?: string | null };
+  // 'nolyric' / 'uncollected' surface as boolean flags on miss responses.
+  nolyric?: boolean;
+  uncollected?: boolean;
+};
+
+/** Pulls plain lyrics from NetEase's /song/lyric weapi endpoint. Returns
+ *  null when the track has no lyrics (typical for instrumentals or songs
+ *  NetEase hasn't collected yet). Otherwise returns the timestamp-stripped
+ *  lines from the original (lrc), ignoring tlyric translations so the
+ *  shared card stays in the language the user actually picked. */
+export async function fetchLyricViaWeapi(songId: string): Promise<string[] | null> {
+  const body = {
+    id: songId,
+    lv: -1,
+    kv: -1,
+    tv: -1,
+    csrf_token: '',
+  };
+  const data = await callWeapi<WeapiLyricResponse>('/song/lyric', body);
+  if (data.code !== 200) return null;
+  if (data.nolyric || data.uncollected) return null;
+  const raw = data.lrc?.lyric?.trim();
+  if (!raw) return null;
+  return raw
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        // Strip per-line `[mm:ss.xxx]` timestamps. NetEase sometimes also
+        // emits a leading `[ti:]/[ar:]/[al:]/[by:]` metadata block — those
+        // become empty after this filter and get dropped below.
+        .replace(/^\s*(?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*)+/, '')
+        .replace(/^\s*\[(?:ti|ar|al|by|offset|length):[^\]]*\]\s*$/i, '')
+        .trim(),
+    )
+    .filter((line) => line.length > 0)
+    // Drop NetEase's inlined credit lines (作词/作曲/编曲/制作 …): they live
+    // as regular lyric rows with no special marker, so the LRC-tag filter
+    // above misses them. Match either a Chinese colon (：) or ASCII colon
+    // following the credit label.
+    .filter((line) => !/^(作词|作曲|编曲|制作|出品|监制|混音|母带)\s*[：:]/i.test(line));
+}

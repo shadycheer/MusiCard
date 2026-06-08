@@ -151,7 +151,12 @@ export async function setCachedTrack(
   }
 }
 
-export type LyricsSource = 'lrclib' | 'lrclib-miss' | 'ai' | 'ai-miss';
+export type LyricsSource =
+  | 'lrclib'
+  | 'lrclib-miss'
+  | 'ai'
+  | 'ai-miss'
+  | 'netease';
 
 export type CachedLyrics = {
   lines: string[];

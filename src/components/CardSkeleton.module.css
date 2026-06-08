@@ -1,0 +1,175 @@
+/* All three card skeletons share the same 320px outer width as the real
+   ShareCard variants. Each variant differs in cover geometry, padding,
+   and brand-mark dimensions to match its real counterpart so the swap
+   from skeleton → card is visually seamless. */
+
+.card {
+  position: relative;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(20, 20, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* Diagonal sheen — the single moving cue that the card is loading. */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 32%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 68%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 220% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* ─── Per-platform card shells ──────────────────────────────────────── */
+
+.cardSpotify {
+  padding: 20px;
+  gap: 18px;
+}
+
+.cardApple {
+  padding: 24px 20px;
+  gap: 16px;
+  align-items: center;
+}
+
+.cardNetease {
+  padding: 16px 16px 20px;
+  gap: 14px;
+}
+
+/* ─── Cover slots ──────────────────────────────────────────────────── */
+
+.coverSquare {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.coverApple {
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.vinylStage {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8% 0;
+}
+
+.vinyl {
+  width: 84%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 0.045) 0 1px,
+      rgba(255, 255, 255, 0) 1px 4px
+    ),
+    rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vinylLabel {
+  width: 38%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Title / artist bars ──────────────────────────────────────────── */
+
+.info {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardApple .info {
+  align-items: center;
+}
+
+.titleBar {
+  width: 70%;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.artistBar {
+  width: 42%;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ─── Foot: brand lockup + QR ──────────────────────────────────────── */
+
+.foot {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.brandSpotify {
+  width: 88px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.brandApple {
+  width: 76px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.brandNetease {
+  width: 80px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.qr {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}

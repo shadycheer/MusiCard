@@ -5,11 +5,11 @@
 :root {
   --bg: #050507;
   --bg-rise: #101015;
-  --surface: #16161c;
-  --surface-soft: #1c1c24;
-  --surface-raised: #22222c;
-  --hairline: rgba(255, 255, 255, 0.07);
-  --hairline-strong: rgba(255, 255, 255, 0.14);
+  --surface: rgba(20, 20, 26, 0.74);
+  --surface-soft: rgba(28, 28, 36, 0.78);
+  --surface-raised: rgba(40, 40, 50, 0.82);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
 
   --text: rgba(255, 255, 255, 0.94);
   --text-soft: rgba(255, 255, 255, 0.68);
@@ -30,7 +30,6 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui-stack);
   -webkit-font-smoothing: antialiased;
@@ -42,19 +41,24 @@ body {
 body {
   min-height: 100vh;
   overflow-x: hidden;
+  background: var(--bg);
 }
 
-body::before {
+/* Hairline grid: faint texture cue, masked out near the bottom so it
+   doesn't compete with content there. The only baseline decoration on
+   idle/loading — the colorful per-track backdrop only kicks in on
+   success, see .coverBackdrop in page.module.css. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
   background-size: 56px 56px;
-  opacity: 0.28;
+  opacity: 0.34;
   mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
 }
 
