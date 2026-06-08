@@ -1,21 +1,17 @@
-/* Numbered citation badge with click-to-open popover.
-   Matches the dark editorial aesthetic used by SongDNAPanel. */
-
 .wrap {
-  position: relative;
   display: inline-block;
   margin-left: 2px;
 }
 
 .badge {
+  color: var(--text-mute);
   background: transparent;
   border: none;
   padding: 0 2px;
   cursor: pointer;
-  color: var(--text-faint);
-  font-family: var(--font-mono-stack);
+  font-family: var(--font-ui-stack);
   font-size: 11px;
-  transition: color 0.15s ease;
+  transition: color 0.14s ease;
 }
 
 .badge:hover {
@@ -23,46 +19,44 @@
 }
 
 .popover {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 280px;
-  padding: 12px 14px;
+  position: fixed;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(20, 20, 22, 0.98);
+  max-height: min(300px, calc(100vh - 32px));
+  padding: 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: var(--text);
+  background: var(--bg-rise);
   border: 1px solid var(--hairline-strong);
-  border-radius: 10px;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
-  z-index: 30;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
   text-align: left;
 }
 
 .title {
+  color: var(--text);
   font-family: var(--font-ui-stack);
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text);
+  font-weight: 650;
+  line-height: 1.45;
 }
 
 .excerpt {
+  color: var(--text-mute);
   font-family: var(--font-ui-stack);
   font-size: 12px;
   line-height: 1.55;
-  color: var(--text-mute);
-  font-style: italic;
 }
 
 .link {
-  margin-top: 2px;
   align-self: flex-start;
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  color: var(--accent);
+  color: var(--text);
+  font-family: var(--font-ui-stack);
+  font-size: 12px;
   text-decoration: none;
-  letter-spacing: 0.04em;
 }
 
 .link:hover {
@@ -71,6 +65,6 @@
 
 @media (max-width: 720px) {
   .popover {
-    width: 220px;
+    max-height: min(260px, calc(100vh - 32px));
   }
 }

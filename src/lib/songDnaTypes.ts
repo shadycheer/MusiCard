@@ -40,8 +40,21 @@ export type MediaUseInfo = {
   year?: string;
 };
 
+export type ArticleSection = {
+  title: string;
+  body: Paragraph;
+};
+
 export type SongDnaFound = {
   hasData: true;
+
+  article?: {
+    headline: string;
+    lead: Paragraph;
+    keyFacts?: Fact<string[]>;
+    sections: ArticleSection[];
+    takeaway?: Paragraph;
+  };
 
   identity?: {
     album?: Fact<string>;

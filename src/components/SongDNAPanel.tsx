@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import CitationRef from './CitationRef';
 import { buildCitationRegistry } from '@/lib/songDnaClient';
 import type {
+  ArticleSection,
   Citation,
   Fact,
   Paragraph,
@@ -51,9 +52,7 @@ export default function SongDNAPanel({ state, onRequest }: Props) {
   if (state.kind === 'idle') {
     return (
       <div className={styles.idle}>
-        <p className={styles.idleHint}>
-          点这里，让 AI 联网帮你查这首歌的作词作曲、灵感来源、制作过程、影响传承。
-        </p>
+        <p className={styles.idleHint}>AI 帮你考据这首歌</p>
         <button
           type="button"
           className={styles.action}
@@ -87,7 +86,7 @@ export default function SongDNAPanel({ state, onRequest }: Props) {
   if (state.kind === 'empty') {
     return (
       <div className={styles.empty}>
-        <p>这首歌目前找不到足够可信的公开资料 — 我宁愿留白，也不想凭空给你写。</p>
+        <p>暂无可信资料</p>
         <button
           type="button"
           className={styles.retryGhost}
@@ -143,10 +142,9 @@ function FoundView({
     <div className={styles.found}>
       {cached && (
         <div className={styles.cacheMeta}>
-          <span className={styles.cacheTag}>资料·已存档</span>
           {cachedAt && (
             <span className={styles.cacheTime}>
-              · 缓存于 {relativeTime(cachedAt)}
+              缓存于 {relativeTime(cachedAt)}
             </span>
           )}
           <button
@@ -154,133 +152,143 @@ function FoundView({
             className={styles.refreshButton}
             onClick={onRefresh}
           >
-            ↻ 重新检索
+            重新检索
           </button>
         </div>
       )}
 
-      {hasIdentity(payload) && (
-        <Section number="〇一" title="身份信息">
-          <FactList
-            data={payload.identity!}
-            keys={['album', 'releaseDate', 'label', 'duration'] as const}
-            numberOf={registry.numberOf}
-          />
-        </Section>
+      {payload.article ? (
+        <ArticleView article={payload.article} numberOf={registry.numberOf} />
+      ) : (
+        <>
+          {hasIdentity(payload) && (
+            <Section title="曲目">
+              <FactList
+                data={payload.identity!}
+                keys={['album', 'releaseDate', 'label', 'duration'] as const}
+                numberOf={registry.numberOf}
+              />
+            </Section>
+          )}
+
+          {hasCredits(payload) && (
+            <Section title="幕后">
+              <FactList
+                data={payload.credits!}
+                keys={
+                  [
+                    'lyrics',
+                    'composition',
+                    'arrangement',
+                    'production',
+                    'studio',
+                    'musicians',
+                    'engineers',
+                  ] as const
+                }
+                numberOf={registry.numberOf}
+              />
+            </Section>
+          )}
+
+          {hasMaking(payload) && (
+            <Section title="故事">
+              {payload.making!.inspiration && (
+                <ParagraphBlock
+                  label="灵感"
+                  paragraph={payload.making!.inspiration}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.making!.writing && (
+                <ParagraphBlock
+                  label="写作"
+                  paragraph={payload.making!.writing}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.making!.recording && (
+                <ParagraphBlock
+                  label="录制"
+                  paragraph={payload.making!.recording}
+                  numberOf={registry.numberOf}
+                />
+              )}
+            </Section>
+          )}
+
+          {hasLegacy(payload) && (
+            <Section title="回响">
+              {payload.legacy!.commercial && (
+                <ParagraphBlock
+                  label="成绩"
+                  paragraph={payload.legacy!.commercial}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.legacy!.awards && (
+                <FactRow
+                  label="获奖"
+                  value={
+                    <ul className={styles.bulletList}>
+                      {payload.legacy!.awards.value.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
+                    </ul>
+                  }
+                  citations={payload.legacy!.awards.citations}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.legacy!.covers && (
+                <FactRow
+                  label="翻唱"
+                  value={
+                    <ul className={styles.bulletList}>
+                      {payload.legacy!.covers.value.map((c, i) => (
+                        <li key={i}>
+                          {c.artist}
+                          {c.year ? ` (${c.year})` : ''}
+                          {c.note ? ` — ${c.note}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                  citations={payload.legacy!.covers.citations}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.legacy!.mediaUse && (
+                <FactRow
+                  label="影视使用"
+                  value={
+                    <ul className={styles.bulletList}>
+                      {payload.legacy!.mediaUse.value.map((m, i) => (
+                        <li key={i}>
+                          《{m.title}》
+                          {m.year ? ` (${m.year})` : ''} — {m.medium}
+                        </li>
+                      ))}
+                    </ul>
+                  }
+                  citations={payload.legacy!.mediaUse.citations}
+                  numberOf={registry.numberOf}
+                />
+              )}
+              {payload.legacy!.impact && (
+                <ParagraphBlock
+                  label="影响"
+                  paragraph={payload.legacy!.impact}
+                  numberOf={registry.numberOf}
+                />
+              )}
+            </Section>
+          )}
+        </>
       )}
 
-      {hasCredits(payload) && (
-        <Section number="〇二" title="创作团队">
-          <FactList
-            data={payload.credits!}
-            keys={
-              [
-                'lyrics',
-                'composition',
-                'arrangement',
-                'production',
-                'studio',
-                'musicians',
-                'engineers',
-              ] as const
-            }
-            numberOf={registry.numberOf}
-          />
-        </Section>
-      )}
-
-      {hasMaking(payload) && (
-        <Section number="〇三" title="创作过程">
-          {payload.making!.inspiration && (
-            <ParagraphBlock
-              label="① 灵感起源"
-              paragraph={payload.making!.inspiration}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.making!.writing && (
-            <ParagraphBlock
-              label="② 写作过程·艺人当时处境"
-              paragraph={payload.making!.writing}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.making!.recording && (
-            <ParagraphBlock
-              label="③ 录制现场·关键决策·轶事"
-              paragraph={payload.making!.recording}
-              numberOf={registry.numberOf}
-            />
-          )}
-        </Section>
-      )}
-
-      {hasLegacy(payload) && (
-        <Section number="〇四" title="影响与传承">
-          {payload.legacy!.commercial && (
-            <ParagraphBlock
-              label="商业表现"
-              paragraph={payload.legacy!.commercial}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.legacy!.awards && (
-            <FactRow
-              label="获奖"
-              value={
-                <ul className={styles.bulletList}>
-                  {payload.legacy!.awards.value.map((a, i) => (
-                    <li key={i}>{a}</li>
-                  ))}
-                </ul>
-              }
-              citations={payload.legacy!.awards.citations}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.legacy!.covers && (
-            <FactRow
-              label="被翻唱"
-              value={
-                <ul className={styles.bulletList}>
-                  {payload.legacy!.covers.value.map((c, i) => (
-                    <li key={i}>
-                      {c.artist}
-                      {c.year ? ` (${c.year})` : ''}
-                      {c.note ? ` — ${c.note}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              }
-              citations={payload.legacy!.covers.citations}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.legacy!.mediaUse && (
-            <FactRow
-              label="影视游戏使用"
-              value={
-                <ul className={styles.bulletList}>
-                  {payload.legacy!.mediaUse.value.map((m, i) => (
-                    <li key={i}>
-                      《{m.title}》
-                      {m.year ? ` (${m.year})` : ''} — {m.medium}
-                    </li>
-                  ))}
-                </ul>
-              }
-              citations={payload.legacy!.mediaUse.citations}
-              numberOf={registry.numberOf}
-            />
-          )}
-          {payload.legacy!.impact && (
-            <ParagraphBlock
-              label="文化影响"
-              paragraph={payload.legacy!.impact}
-              numberOf={registry.numberOf}
-            />
-          )}
-        </Section>
+      {registry.registry.length > 0 && (
+        <ReferencesList citations={registry.registry} />
       )}
 
       {!cached && (
@@ -289,7 +297,7 @@ function FoundView({
           className={styles.refreshGhost}
           onClick={onRefresh}
         >
-          ↻ 重新检索
+          重新检索
         </button>
       )}
     </div>
@@ -298,21 +306,117 @@ function FoundView({
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 
+function ArticleView({
+  article,
+  numberOf,
+}: {
+  article: NonNullable<SongDnaFound['article']>;
+  numberOf: (url: string) => number;
+}) {
+  return (
+    <article className={styles.article}>
+      <header className={styles.articleHead}>
+        <h3 className={styles.articleTitle}>{article.headline}</h3>
+        <p className={styles.articleLead}>
+          {article.lead.text}
+          <Citations citations={article.lead.citations} numberOf={numberOf} />
+        </p>
+      </header>
+
+      {article.keyFacts && article.keyFacts.value.length > 0 && (
+        <div className={styles.keyFacts}>
+          <ul>
+            {article.keyFacts.value.map((fact, i) => (
+              <li key={i}>
+                {fact}
+                {i === article.keyFacts!.value.length - 1 && (
+                  <Citations
+                    citations={article.keyFacts!.citations}
+                    numberOf={numberOf}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {article.sections.map((section, i) => (
+        <ArticleSectionBlock
+          key={`${section.title}-${i}`}
+          section={section}
+          numberOf={numberOf}
+        />
+      ))}
+
+      {article.takeaway && (
+        <div className={styles.takeaway}>
+          <p>
+            {article.takeaway.text}
+            <Citations
+              citations={article.takeaway.citations}
+              numberOf={numberOf}
+            />
+          </p>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ArticleSectionBlock({
+  section,
+  numberOf,
+}: {
+  section: ArticleSection;
+  numberOf: (url: string) => number;
+}) {
+  return (
+    <section className={styles.articleSection}>
+      <h4 className={styles.articleSectionTitle}>{section.title}</h4>
+      <p className={styles.paragraphText}>
+        {section.body.text}
+        <Citations citations={section.body.citations} numberOf={numberOf} />
+      </p>
+      {section.body.image && (
+        <figure className={styles.figure}>
+          <img
+            src={section.body.image.url}
+            alt={section.body.image.caption ?? ''}
+            onError={(e) => {
+              const fig = (e.currentTarget as HTMLImageElement).closest('figure');
+              if (fig) (fig as HTMLElement).style.display = 'none';
+            }}
+          />
+          {section.body.image.caption && (
+            <figcaption>{section.body.image.caption}</figcaption>
+          )}
+          {section.body.image.sourceUrl && (
+            <a
+              href={section.body.image.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.figureSource}
+            >
+              图源
+            </a>
+          )}
+        </figure>
+      )}
+    </section>
+  );
+}
+
 function Section({
-  number,
   title,
   children,
 }: {
-  number: string;
   title: string;
   children: React.ReactNode;
 }) {
   return (
     <section className={styles.section}>
-      <header className={styles.sectionHead}>
-        <span className={styles.sectionKicker}>{number}</span>
-        <h3 className={styles.sectionTitle}>{title}</h3>
-      </header>
+      <h3 className={styles.sectionTitle}>{title}</h3>
       <div className={styles.sectionBody}>{children}</div>
     </section>
   );
@@ -398,7 +502,10 @@ function ParagraphBlock({
   return (
     <div className={styles.paragraphBlock}>
       <h4 className={styles.paragraphLabel}>{label}</h4>
-      <p className={styles.paragraphText}>{paragraph.text}</p>
+      <p className={styles.paragraphText}>
+        {paragraph.text}
+        <Citations citations={paragraph.citations} numberOf={numberOf} />
+      </p>
       {paragraph.image && (
         <figure className={styles.figure}>
           <img
@@ -419,17 +526,44 @@ function ParagraphBlock({
               rel="noreferrer noopener"
               className={styles.figureSource}
             >
-              ↗ 图源
+              图源
             </a>
           )}
         </figure>
       )}
-      <div className={styles.paragraphSources}>
-        <span className={styles.paragraphSourcesLabel}>来源</span>
-        <Citations citations={paragraph.citations} numberOf={numberOf} />
-      </div>
     </div>
   );
+}
+
+function ReferencesList({ citations }: { citations: Citation[] }) {
+  return (
+    <footer className={styles.references}>
+      <h4 className={styles.referencesTitle}>参考资料</h4>
+      <ol className={styles.referencesList}>
+        {citations.map((c, i) => (
+          <li key={c.url} className={styles.referenceItem}>
+            <span className={styles.referenceIndex}>{i + 1}</span>
+            <a
+              href={c.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.referenceLink}
+            >
+              {c.title || hostnameOf(c.url)}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </footer>
+  );
+}
+
+function hostnameOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 function Citations({
@@ -473,8 +607,9 @@ function hasLegacy(p: SongDnaFound): boolean {
 
 // ─── Utilities ────────────────────────────────────────────────────────────
 
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+function truncate(s: string | null | undefined, max: number): string {
+  const text = s ?? '';
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 function relativeTime(iso: string): string {

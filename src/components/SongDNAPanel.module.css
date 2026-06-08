@@ -1,6 +1,3 @@
-/* SongDNA panel — dark editorial layout with 4 dimension blocks, citation
-   superscripts, magazine-style figures, and a real-time AI status line. */
-
 .idle,
 .loading,
 .found,
@@ -9,50 +6,61 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  font-family: var(--font-ui-stack);
   color: var(--text);
+  font-family: var(--font-ui-stack);
 }
-
-/* ─── Idle ──────────────────────────────────────────────────── */
 
 .idleHint {
   margin: 0;
+  color: var(--text-mute);
   font-size: 14px;
   line-height: 1.7;
-  color: var(--text-mute);
+}
+
+.action,
+.retryGhost,
+.refreshButton,
+.refreshGhost {
+  align-self: flex-start;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  font-family: var(--font-ui-stack);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease;
 }
 
 .action {
-  align-self: flex-start;
-  padding: 10px 18px;
-  font-family: var(--font-ui-stack);
-  font-size: 13px;
-  font-weight: 500;
+  color: #080808;
   background: var(--accent);
-  color: #050505;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow:
-    0 6px 16px rgba(255, 255, 255, 0.1),
-    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
 .action:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 10px 22px rgba(255, 255, 255, 0.16),
-    0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
 }
 
-/* ─── Loading thinking line ─────────────────────────────────── */
+.retryGhost:hover,
+.refreshButton:hover,
+.refreshGhost:hover {
+  background: var(--surface-raised);
+  border-color: rgba(255, 255, 255, 0.24);
+}
 
 .loading {
   flex-direction: row;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 10px;
+  min-height: 36px;
 }
 
 .loadingPulse {
@@ -61,146 +69,152 @@
 }
 
 .loadingDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text);
-  animation: pulse 1.4s ease-in-out infinite;
-}
-.loadingDot:nth-child(2) {
-  animation-delay: 0.18s;
-}
-.loadingDot:nth-child(3) {
-  animation-delay: 0.36s;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 0.3;
-    transform: scale(0.85);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
+  width: 5px;
+  height: 5px;
+  background: var(--text-mute);
 }
 
 .loadingText {
-  font-size: 13px;
+  min-width: 0;
   color: var(--text-mute);
-  animation: textFadeIn 280ms ease-out;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
-@keyframes textFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ─── Cache meta strip ──────────────────────────────────────── */
 
 .cacheMeta {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--hairline);
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-}
-
-.cacheTag {
-  padding: 2px 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  text-transform: uppercase;
+  color: var(--text-mute);
+  font-size: 12px;
 }
 
 .cacheTime {
   flex: 1;
+  min-width: 0;
 }
 
 .refreshButton,
 .refreshGhost {
+  min-height: 30px;
+  color: var(--text-soft);
   background: transparent;
-  border: none;
-  color: var(--text-mute);
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 999px;
-  transition: color 0.2s ease, background 0.2s ease;
-}
-
-.refreshButton:hover,
-.refreshGhost:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
 }
 
 .refreshGhost {
   align-self: flex-end;
-  margin-top: 8px;
 }
 
-/* ─── Section (a single dimension) ──────────────────────────── */
+.article {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.articleHead {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.articleTitle {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.articleLead {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14.5px;
+  line-height: 1.8;
+}
+
+.keyFacts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.keyFacts ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.articleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.articleSectionTitle {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.takeaway {
+  padding: 12px 0 0;
+}
+
+.takeaway p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14.5px;
+  line-height: 1.8;
+}
 
 .section {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding-bottom: 22px;
-  border-bottom: 1px solid var(--hairline);
 }
 
-.section:last-of-type {
-  border-bottom: none;
-}
-
-.sectionHead {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.sectionKicker {
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  color: var(--text-faint);
+.section + .section {
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
 }
 
 .sectionTitle {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
   color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
   letter-spacing: -0.005em;
 }
 
 .sectionBody {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
-/* ─── Fact list ─────────────────────────────────────────────── */
-
 .factList {
-  margin: 0;
   display: grid;
   grid-template-columns: max-content 1fr;
   column-gap: 16px;
   row-gap: 8px;
+  margin: 0;
 }
 
 .factRow {
@@ -209,34 +223,26 @@
 
 .factLabel {
   margin: 0;
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  align-self: start;
   padding-top: 1px;
+  color: var(--text-mute);
+  font-size: 12px;
 }
 
 .factValue {
   margin: 0;
-  font-family: var(--font-ui-stack);
-  font-size: 14px;
-  line-height: 1.55;
   color: var(--text);
-  letter-spacing: -0.005em;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .bulletList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-
-/* ─── Paragraph block ───────────────────────────────────────── */
 
 .paragraphBlock {
   display: flex;
@@ -246,82 +252,117 @@
 
 .paragraphLabel {
   margin: 0;
-  font-family: var(--font-mono-stack);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-  text-transform: uppercase;
+  color: var(--text-mute);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .paragraphText {
   margin: 0;
-  font-family: var(--font-ui-stack);
-  font-size: 14.5px;
-  line-height: 1.78;
   color: var(--text);
-  letter-spacing: -0.005em;
+  font-size: 14.5px;
+  line-height: 1.8;
 }
 
-.paragraphSources {
+/* References footer at the bottom of the SongDNA panel — consolidated list
+   of every cited URL, numbered to match the inline ⁽n⁾ superscripts. */
+
+.references {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-top: 2px;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
 }
 
-.paragraphSourcesLabel {
-  font-family: var(--font-mono-stack);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--text-faint);
+.referencesTitle {
+  margin: 0;
+  color: var(--text-mute);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-right: 4px;
 }
 
-/* ─── Figure ────────────────────────────────────────────────── */
-
-.figure {
-  margin: 6px 0 2px;
+.referencesList {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.referenceItem {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--text-mute);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.referenceIndex {
+  flex: 0 0 18px;
+  color: var(--text-faint);
+  font-family: var(--font-mono-stack);
+  font-size: 11px;
+  text-align: right;
+}
+
+.referenceLink {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-soft);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.referenceLink:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 0;
 }
 
 .figure img {
   width: 100%;
   max-height: 320px;
   object-fit: contain;
-  border-radius: 8px;
+  background: var(--surface);
   border: 1px solid var(--hairline);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
 }
 
 .figure figcaption {
-  font-family: var(--font-ui-stack);
-  font-size: 12px;
   color: var(--text-mute);
-  font-style: italic;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .figureSource {
   align-self: flex-start;
-  font-family: var(--font-mono-stack);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
+  color: var(--text-mute);
+  font-size: 12px;
   text-decoration: none;
 }
 
 .figureSource:hover {
   color: var(--text);
+  text-decoration: underline;
 }
-
-/* ─── Empty / Error ─────────────────────────────────────────── */
 
 .empty,
 .error {
-  padding: 8px 0;
+  padding: 4px 0;
   font-size: 14px;
 }
 
@@ -329,37 +370,26 @@
 .error p {
   margin: 0;
   color: var(--text-mute);
+  line-height: 1.7;
 }
 
 .error p {
   color: #ff9a9a;
 }
 
-.retryGhost {
-  align-self: flex-start;
-  padding: 8px 14px;
-  background: transparent;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
-  font-family: var(--font-ui-stack);
-  font-size: 12px;
-  color: var(--text-soft);
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-
-.retryGhost:hover {
-  color: var(--text);
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.04);
-}
-
 @media (max-width: 720px) {
   .factList {
-    grid-template-columns: 80px 1fr;
+    grid-template-columns: 76px 1fr;
     column-gap: 12px;
   }
-  .paragraphText {
+
+  .articleTitle {
+    font-size: 16px;
+  }
+
+  .paragraphText,
+  .articleLead,
+  .takeaway p {
     font-size: 14px;
   }
 }

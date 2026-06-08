@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from 'react';
 import ShareCard from '@/components/ShareCard';
 import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
@@ -17,7 +16,6 @@ import { renderCardCanvas } from '@/lib/renderCardCanvas';
 import { fetchLyricsLrclib, fetchLyricsAi, parseLyrics } from '@/lib/lrclib';
 import { streamSongDna } from '@/lib/songDnaClient';
 import { proxyCoverUrl } from '@/lib/coverProxy';
-import { extractCoverPalette } from '@/lib/colorExtraction';
 import type { Platform } from '@/lib/musicUrl';
 import styles from './page.module.css';
 
@@ -64,8 +62,16 @@ function triggerDownload(url: string, filename: string): void {
   document.body.removeChild(a);
 }
 
-function isMobileUA(): boolean {
+function isDesktopPlatform(): boolean {
   if (typeof navigator === 'undefined') return false;
+  const platform = navigator.platform ?? '';
+  const ua = navigator.userAgent;
+  return /Mac|Win|Linux|CrOS/i.test(platform) || /Macintosh|Windows|X11|Linux/i.test(ua);
+}
+
+function shouldUseMobileShare(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  if (isDesktopPlatform()) return false;
   return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
@@ -92,15 +98,6 @@ async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> 
   }
 }
 
-/** Convert "#RRGGBB" into an "rgba(r,g,b,a)" string. */
-function hexToRgba(hex: string, alpha: number): string {
-  const m = hex.replace('#', '');
-  const r = parseInt(m.slice(0, 2), 16);
-  const g = parseInt(m.slice(2, 4), 16);
-  const b = parseInt(m.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 export default function Page() {
   const [input, setInput] = useState('');
   const { state, refetch } = useTrackInfo(input);
@@ -108,15 +105,14 @@ export default function Page() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [fallbackImageUrl, setFallbackImageUrl] = useState<string | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [useMobileShare, setUseMobileShare] = useState(false);
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [manualText, setManualText] = useState('');
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [songDnaState, setSongDnaState] = useState<SongDNAState>({ kind: 'idle' });
-  const [bloomVars, setBloomVars] = useState<CSSProperties | null>(null);
 
   useEffect(() => {
-    setIsMobile(isMobileUA());
+    setUseMobileShare(shouldUseMobileShare());
   }, []);
 
   const lyricLines = useMemo(() => {
@@ -152,27 +148,6 @@ export default function Page() {
     };
   }, [state]);
 
-  // Extract cover palette → push bloom colors as CSS vars on body. Effect
-  // is the soft cover-derived halo behind everything on the page.
-  useEffect(() => {
-    if (state.kind !== 'success' || !state.track.coverUrl) {
-      document.body.style.removeProperty('--bloom-1');
-      document.body.style.removeProperty('--bloom-2');
-      setBloomVars(null);
-      return;
-    }
-    let cancelled = false;
-    extractCoverPalette(proxyCoverUrl(state.track.coverUrl)).then((palette) => {
-      if (cancelled) return;
-      document.body.style.setProperty('--bloom-1', hexToRgba(palette.primary, 0.32));
-      document.body.style.setProperty('--bloom-2', hexToRgba(palette.secondary, 0.22));
-      setBloomVars({});
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [state]);
-
   useEffect(() => {
     // Track change → abort any in-flight song-dna stream to free the
     // route handler and avoid late state updates landing on the new song.
@@ -194,6 +169,8 @@ export default function Page() {
     const { title, artist } = state.track;
 
     (async () => {
+      let shouldTryAi = false;
+
       try {
         const first = await fetchLyricsLrclib(title, artist, ctrl.signal);
         if (ctrl.signal.aborted) return;
@@ -212,20 +189,38 @@ export default function Page() {
           return;
         }
 
-        // LRCLIB miss → tell user we're falling back to AI, then fire phase 2.
+        shouldTryAi = true;
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        // LRCLIB being slow/down should not end the flow; AI is the fallback.
+        shouldTryAi = true;
+      }
+
+      if (shouldTryAi) {
         setLyricsState({ kind: 'ai-searching' });
+      }
+
+      try {
         const second = await fetchLyricsAi(title, artist, ctrl.signal);
         if (ctrl.signal.aborted) return;
-
         if (second.lines && second.lines.length > 0) {
           setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
+        } else if (second.error) {
+          setLyricsState({
+            kind: 'not-found',
+            message: 'AI 歌词服务暂时没返回可用结果。可以先手动粘贴歌词：',
+          });
         } else {
           setLyricsState({ kind: 'not-found' });
         }
       } catch (err) {
         if (ctrl.signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setLyricsState({ kind: 'not-found' });
+        setLyricsState({
+          kind: 'not-found',
+          message: 'AI 歌词服务暂时没返回可用结果。可以先手动粘贴歌词：',
+        });
       }
     })();
 
@@ -280,7 +275,7 @@ export default function Page() {
       });
 
       try {
-        let receivedFinal = false;
+        let receivedTerminal = false;
         await streamSongDna(
           `/api/song-dna?${params.toString()}`,
           (event) => {
@@ -295,7 +290,7 @@ export default function Page() {
                   : s,
               );
             } else if (event.kind === 'final') {
-              receivedFinal = true;
+              receivedTerminal = true;
               if (event.payload.hasData) {
                 setSongDnaState({
                   kind: 'found',
@@ -307,12 +302,13 @@ export default function Page() {
                 setSongDnaState({ kind: 'empty' });
               }
             } else if (event.kind === 'error') {
+              receivedTerminal = true;
               setSongDnaState({ kind: 'error', message: event.message });
             }
           },
           ctrl.signal,
         );
-        if (!receivedFinal && !ctrl.signal.aborted) {
+        if (!receivedTerminal && !ctrl.signal.aborted) {
           setSongDnaState({
             kind: 'error',
             message: '查询超时或流意外终止',
@@ -352,6 +348,8 @@ export default function Page() {
         return '正在读取这首歌的资料…';
       case 'refreshing':
         return '正在重新检索…';
+      default:
+        return detail ?? '正在处理资料…';
     }
   }
 
@@ -373,7 +371,10 @@ export default function Page() {
       const blob = await canvasToBlob(canvas);
       const filename = sanitizeFilename(state.track.title, state.track.platform);
 
-      if (isMobile) {
+      const mobileShare = shouldUseMobileShare();
+      setUseMobileShare(mobileShare);
+
+      if (mobileShare) {
         const result = await tryShareFile(blob, filename);
         if (result === 'unsupported') {
           const url = URL.createObjectURL(blob);
@@ -396,8 +397,6 @@ export default function Page() {
     }
   };
 
-  void bloomVars; // referenced just for the linter — actual mutation is on body
-
   const stage: 'idle' | 'loading' | 'error' | 'success' =
     state.kind === 'idle' || state.kind === 'invalid'
       ? 'idle'
@@ -409,59 +408,84 @@ export default function Page() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.nav}>
-        <a href="/" className={styles.navBrand}>
-          <span className={styles.navMark} aria-hidden />
-          <span className={styles.navLogo}>MusiCard</span>
-          <span className={styles.navTagline}>music · shareable as image</span>
+      <header className={styles.topBar}>
+        <a href="/" className={styles.brand}>
+          <span className={styles.brandMark} aria-hidden />
+          <span className={styles.brandText}>MusiCard</span>
         </a>
-        <div className={styles.navRight}>
+
+        <div className={styles.inputWrap}>
+          <label className={styles.inputLabel} htmlFor="track-input">
+            音乐链接
+          </label>
+          <input
+            id="track-input"
+            className={styles.input}
+            placeholder="粘贴 Spotify / Apple Music / 网易云 单曲链接"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          {state.kind === 'invalid' && (
+            <p className={styles.inputError}>{state.message}</p>
+          )}
+        </div>
+
+        <div className={styles.topLinks}>
           <a
-            className={styles.navLink}
+            className={styles.topLink}
             href="https://github.com/shadycheer/MusiCard"
             target="_blank"
             rel="noreferrer"
           >
             GitHub
           </a>
-          <a className={styles.navLink} href="#about">
-            关于
-          </a>
         </div>
       </header>
 
       <main className={styles.main} data-stage={stage}>
-        <div className={styles.inputWrap}>
-          <label className={styles.inputLabel} htmlFor="track-input">
-            LINK
-          </label>
-          <input
-            id="track-input"
-            className={styles.input}
-            placeholder="Spotify / Apple Music / 网易云 单曲链接 →"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          {state.kind === 'invalid' && (
-            <p className={styles.errorText}>{state.message}</p>
-          )}
-          {stage === 'idle' && (
-            <p className={styles.inputHint}>
-              SUPPORTS · SPOTIFY · APPLE MUSIC · 网易云
-            </p>
-          )}
-        </div>
+        {stage === 'idle' && (
+          <section className={styles.hero} aria-label="MusiCard 介绍">
+            <h1 className={styles.heroTitle}>
+              把一首歌变成可以分享的卡片
+            </h1>
+            <ol className={styles.heroSteps}>
+              <li className={styles.heroStep}>
+                <span className={styles.heroStepIndex}>1</span>
+                <p className={styles.heroStepTitle}>贴链接</p>
+                <p className={styles.heroStepDesc}>Spotify · Apple Music · 网易云</p>
+              </li>
+              <li className={styles.heroStep}>
+                <span className={styles.heroStepIndex}>2</span>
+                <p className={styles.heroStepTitle}>选歌词 · 读故事</p>
+                <p className={styles.heroStepDesc}>最多 4 行，AI 帮你考据</p>
+              </li>
+              <li className={styles.heroStep}>
+                <span className={styles.heroStepIndex}>3</span>
+                <p className={styles.heroStepTitle}>下载图片</p>
+                <p className={styles.heroStepDesc}>PNG，直接发</p>
+              </li>
+            </ol>
+          </section>
+        )}
 
         {stage === 'loading' && (
-          <div className={styles.centerStage}>
-            <div className={`${styles.skeleton} ${styles.fadeUp}`} />
+          <div className={styles.statusLayout}>
+            <section className={styles.previewPane} aria-label="加载中">
+              <div className={styles.skeleton} />
+            </section>
+            <aside className={styles.statusPanel}>
+              <p className={styles.statusTitle}>解析中</p>
+            </aside>
           </div>
         )}
 
         {stage === 'error' && state.kind === 'error' && (
-          <div className={styles.centerStage}>
-            <div className={`${styles.errorBox} ${styles.fadeUp}`}>
-              <p>{state.message}</p>
+          <div className={styles.statusLayout}>
+            <section className={styles.previewPane} aria-label="读取失败">
+              <div className={styles.errorPreview}>读取失败</div>
+            </section>
+            <aside className={styles.statusPanel}>
+              <p className={styles.statusTitle}>{state.message}</p>
               <button
                 className={styles.secondary}
                 onClick={refetch}
@@ -469,13 +493,13 @@ export default function Page() {
               >
                 重试
               </button>
-            </div>
+            </aside>
           </div>
         )}
 
         {state.kind === 'success' && qrSvg && (
           <div className={styles.workArea}>
-            <div className={`${styles.cardCol} ${styles.cardColEnter}`}>
+            <section className={styles.previewPane} aria-label="卡片预览">
               <div className={styles.cardFrame}>
                 <ShareCard
                   title={state.track.title}
@@ -486,29 +510,26 @@ export default function Page() {
                   lyrics={selectedLyricLines}
                 />
               </div>
-              <button
-                className={`${styles.primary} ${styles.fadeUpDelayed}`}
-                disabled={!qrSvg || exporting}
-                onClick={handleExport}
-                type="button"
-              >
-                {exporting ? '导出中…' : isMobile ? '保存到相册' : '下载图片'}
-              </button>
-              {exportError && <p className={styles.errorText}>{exportError}</p>}
-            </div>
+              <div className={styles.previewActions}>
+                <button
+                  className={styles.primary}
+                  disabled={!qrSvg || exporting}
+                  onClick={handleExport}
+                  type="button"
+                >
+                  {exporting ? '导出中…' : useMobileShare ? '保存到相册' : '下载图片'}
+                </button>
+                {exportError && <p className={styles.errorText}>{exportError}</p>}
+              </div>
+            </section>
 
-            <div className={`${styles.panelsCol} ${styles.panelsColEnter}`}>
+            <aside className={styles.panelsCol}>
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
-                  <h2 className={styles.panelTitle}>
-                    <span className={styles.panelKicker}>01</span>
-                    歌词
-                  </h2>
-                  <div className={styles.panelMeta}>
-                    <span>
-                      {selectedIndices.length}/{MAX_SELECTED_LYRICS} selected
-                    </span>
-                  </div>
+                  <h2 className={styles.panelTitle}>歌词</h2>
+                  <span className={styles.panelMeta}>
+                    {selectedIndices.length}/{MAX_SELECTED_LYRICS}
+                  </span>
                 </header>
                 <div className={styles.panelBody}>
                   <LyricsPicker
@@ -525,19 +546,13 @@ export default function Page() {
 
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
-                  <h2 className={styles.panelTitle}>
-                    <span className={styles.panelKicker}>02</span>
-                    Song DNA
-                  </h2>
-                  <div className={styles.panelMeta}>
-                    <span>歌曲背后的故事</span>
-                  </div>
+                  <h2 className={styles.panelTitle}>Song DNA</h2>
                 </header>
                 <div className={styles.panelBody}>
                   <SongDNAPanel state={songDnaState} onRequest={requestSongDna} />
                 </div>
               </section>
-            </div>
+            </aside>
           </div>
         )}
       </main>

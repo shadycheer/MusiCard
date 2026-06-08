@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS lyrics (
   cache_key TEXT PRIMARY KEY,                 -- "lyrics:<lower(title)>|<lower(artist)>"
   title     TEXT NOT NULL,
   artist    TEXT NOT NULL,
-  lines     TEXT[] NOT NULL,                  -- empty array = LRCLIB miss, but we cached it
-  source    TEXT NOT NULL,                    -- 'lrclib' | 'lrclib-miss'
+  lines     TEXT[] NOT NULL,                  -- empty array for any 'miss' source
+  source    TEXT NOT NULL,                    -- 'lrclib' | 'lrclib-miss' | 'ai' | 'ai-miss'
   cached_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

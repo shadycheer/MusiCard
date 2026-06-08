@@ -57,6 +57,14 @@ export function buildCitationRegistry(payload: SongDnaFound): {
     }
   };
 
+  if (payload.article) {
+    visit(payload.article.lead.citations);
+    visit(payload.article.keyFacts?.citations);
+    for (const section of payload.article.sections) {
+      visit(section.body.citations);
+    }
+    visit(payload.article.takeaway?.citations);
+  }
   if (payload.identity) {
     visit(payload.identity.album?.citations);
     visit(payload.identity.releaseDate?.citations);

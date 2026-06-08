@@ -3,29 +3,25 @@
 }
 
 :root {
-  /* Refined dark palette — deep ink, with cover-derived ambient bloom
-     layered on top as CSS variables set per-track from the page. */
-  --bg: #050505;
-  --bg-rise: #0d0d0e;
-  --hairline: rgba(255, 255, 255, 0.08);
+  --bg: #050507;
+  --bg-rise: #101015;
+  --surface: #16161c;
+  --surface-soft: #1c1c24;
+  --surface-raised: #22222c;
+  --hairline: rgba(255, 255, 255, 0.07);
   --hairline-strong: rgba(255, 255, 255, 0.14);
 
   --text: rgba(255, 255, 255, 0.94);
-  --text-soft: rgba(255, 255, 255, 0.66);
-  --text-mute: rgba(255, 255, 255, 0.42);
-  --text-faint: rgba(255, 255, 255, 0.26);
+  --text-soft: rgba(255, 255, 255, 0.68);
+  --text-mute: rgba(255, 255, 255, 0.46);
+  --text-faint: rgba(255, 255, 255, 0.28);
 
   --accent: #ffffff;
-  --accent-soft: rgba(255, 255, 255, 0.85);
-
-  /* Cover-derived bloom variables, defaulted to neutral cool teal.
-     Page sets them from extractCoverPalette() once a track loads. */
-  --bloom-1: rgba(96, 165, 250, 0.22);
-  --bloom-2: rgba(168, 85, 247, 0.16);
+  --accent-soft: rgba(255, 255, 255, 0.86);
 
   --font-ui-stack:
-    var(--font-ui), -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    var(--font-ui), -apple-system, BlinkMacSystemFont, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --font-mono-stack:
     var(--font-mono), 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', monospace;
 }
@@ -44,46 +40,26 @@ body {
 }
 
 body {
-  position: relative;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* Ambient bloom — two oversized soft radial gradients that slowly shift
-   tone depending on the current track's cover palette. Sits behind all
-   content with no pointer interference. */
 body::before {
   content: '';
   position: fixed;
-  inset: -20% -10% auto -10%;
-  height: 90vh;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(60% 80% at 30% 0%, var(--bloom-1) 0%, transparent 70%),
-    radial-gradient(60% 80% at 80% 10%, var(--bloom-2) 0%, transparent 75%);
-  filter: blur(40px) saturate(140%);
-  opacity: 0.9;
-  transition: background 1.2s ease;
-}
-
-/* Subtle film-grain overlay for depth — used the same trick on the
-   cards, here it just keeps the deep black from looking like cheap CSS. */
-body::after {
-  content: '';
-  position: fixed;
   inset: 0;
-  pointer-events: none;
   z-index: 0;
+  pointer-events: none;
   background-image:
-    radial-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 3px 3px;
-  mix-blend-mode: screen;
-  opacity: 0.4;
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.28;
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  body::before {
-    transition: none;
-  }
+button,
+input,
+textarea {
+  font: inherit;
 }
