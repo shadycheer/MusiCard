@@ -20,3 +20,8 @@ tsconfig.tsbuildinfo
 
 # Local-only planning / spec docs.
 docs/superpowers/
+
+# Local smoke / playwright artifacts.
+.playwright-browsers/
+.playwright-video/
+.smoke-*.png

@@ -6,20 +6,20 @@ import * as THREE from 'three';
 export type DNAHelixPhase = 'drift' | 'spinner' | 'checkmark';
 
 type Props = {
-  /** drift = free particles in a spherical shell (idle hero).
-   *  spinner = particles collapse to a flat dense ring with a
-   *  travelling brightness wave (loading indicator).
-   *  checkmark = particles morph into a filled green disc with a
-   *  bright ✓ stroke on top — sized + colored to match the SVG badge
-   *  that cross-fades in over the helix center. */
+  /** drift = loose particle cloud (idle hero, freeform motion).
+   *  spinner = particles tighten onto a 3D sphere surface; a
+   *  rotating "lit hemisphere" gradient sweeps around it so the
+   *  rotation reads as motion (loading indicator).
+   *  checkmark = sphere collapses (Z → 0) into a filled green disc
+   *  with a bright ✓ stroke on top — designed to match the SVG
+   *  badge that cross-fades over the helix center at completion. */
   phase?: DNAHelixPhase;
 };
 
-/* Particle budget split.
-   200 fill the disc (sunflower-spiral distribution → visually even).
-   50 form the ✓ stroke. Together: a 44px-diameter green badge with
-   a bright check at the same screen position as the 48px SVG badge,
-   so the cross-fade reads as "particles solidify" rather than a swap. */
+/* 250 total: 200 for the disc fill + 50 for the ✓ stroke. During
+   sphere phase, every particle (disc + check) sits on a single
+   fibonacci-distributed sphere surface — uniformly dense, no poles
+   or seams. */
 const DISC_COUNT = 200;
 const CHECK_COUNT = 50;
 const PARTICLE_COUNT = DISC_COUNT + CHECK_COUNT;
@@ -28,30 +28,49 @@ const SUCCESS_R = 30 / 255;
 const SUCCESS_G = 215 / 255;
 const SUCCESS_B = 96 / 255;
 
-const SPINNER_RADIUS = 1.45;
-const SPIN_SPEED = 1.75; // revolutions per second of the brightness head
-
-/* Disc radius in scene units = SVG circle r=11 inside 24 viewBox,
-   rendered at 48px (badge), projected back through the camera onto
-   the 180px helix stage. Matches the SVG badge size 1:1. */
+/* Sphere is slightly bigger than the disc so the spinner→check
+   morph reads as visible contraction (sphere collapsing to disc). */
+const SPHERE_RADIUS = 1.05;
 const DISC_RADIUS = 0.81;
 
-/* ✓ stroke path. SVG: M7.2 12.2 L10.6 15.6 L16.8 9.2 in viewBox 24.
-   Translated to origin and negated Y (SVG Y-down → scene Y-up), then
-   scaled by (48px / 24 / 27.16 px-per-unit) = 0.0736 scene/svg-units. */
+/* Lit-hemisphere rotation speed. Faster = snappier loading feel,
+   slower = more contemplative. ~1/3 of a turn per second feels
+   appropriate for a multi-second loading operation. */
+const LIGHT_SPIN_HZ = 0.35;
+
+/* ✓ stroke path. SVG: M7.2 12.2 L10.6 15.6 L16.8 9.2 in viewBox 24,
+   translated to origin, Y-negated, scaled to scene units. */
 const CHECK_A: [number, number] = [-0.353, -0.015];
 const CHECK_B: [number, number] = [-0.103, -0.265];
 const CHECK_C: [number, number] = [0.354, 0.206];
 
-/* Golden-angle sunflower distribution → particles fill a disc with
-   uniform area density. Looks like a smooth disc at this count. */
+/* Fibonacci sphere — uniform-density point distribution on a sphere
+   surface. Used for the spinner phase so the ball reads as a
+   perfect sphere rather than clustered at poles. */
+function buildSphereTargets(): Float32Array {
+  const out = new Float32Array(PARTICLE_COUNT * 3);
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    /* y from +1 to -1 stratified; sqrt(1-y²) gives the latitudinal
+       radius so the projection onto XY rings is correct. */
+    const y = 1 - (i / (PARTICLE_COUNT - 1)) * 2;
+    const ringRadius = Math.sqrt(1 - y * y);
+    const theta = i * golden;
+    out[i * 3] = Math.cos(theta) * ringRadius * SPHERE_RADIUS;
+    out[i * 3 + 1] = y * SPHERE_RADIUS;
+    out[i * 3 + 2] = Math.sin(theta) * ringRadius * SPHERE_RADIUS;
+  }
+  return out;
+}
+
+/* Sunflower disc — uniform-area particle distribution inside a circle.
+   Used for the disc fill of the final ✓ badge. */
 function buildDiscTargets(): Float32Array {
   const out = new Float32Array(DISC_COUNT * 3);
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const golden = Math.PI * (3 - Math.sqrt(5));
   for (let i = 0; i < DISC_COUNT; i++) {
-    // sqrt(t) so density is even across radius, not clustered at center
     const r = Math.sqrt((i + 0.5) / DISC_COUNT) * DISC_RADIUS;
-    const a = i * goldenAngle;
+    const a = i * golden;
     out[i * 3] = r * Math.cos(a);
     out[i * 3 + 1] = r * Math.sin(a);
     out[i * 3 + 2] = 0;
@@ -59,8 +78,6 @@ function buildDiscTargets(): Float32Array {
   return out;
 }
 
-/* ✓ stroke targets — split between short and long segments
-   proportionally to arc length so spacing is even along the path. */
 function buildCheckmarkTargets(): Float32Array {
   const out = new Float32Array(CHECK_COUNT * 3);
   const lenShort = Math.hypot(CHECK_B[0] - CHECK_A[0], CHECK_B[1] - CHECK_A[1]);
@@ -72,7 +89,6 @@ function buildCheckmarkTargets(): Float32Array {
     const t = i / Math.max(1, shortCount - 1);
     out[i * 3] = CHECK_A[0] + (CHECK_B[0] - CHECK_A[0]) * t;
     out[i * 3 + 1] = CHECK_A[1] + (CHECK_B[1] - CHECK_A[1]) * t;
-    // z slightly forward so check sits cleanly atop disc particles
     out[i * 3 + 2] = 0.05;
   }
   for (let i = 0; i < longCount; i++) {
@@ -81,30 +97,6 @@ function buildCheckmarkTargets(): Float32Array {
     out[j * 3] = CHECK_B[0] + (CHECK_C[0] - CHECK_B[0]) * t;
     out[j * 3 + 1] = CHECK_B[1] + (CHECK_C[1] - CHECK_B[1]) * t;
     out[j * 3 + 2] = 0.05;
-  }
-  return out;
-}
-
-/* Spinner targets — every particle (disc + check) sits on a single
-   ring at index-based angles. With 250 particles around radius 1.45,
-   the ring reads as a dense neon torus. Radius is recomputed per
-   frame in the animation loop to add a breathing pulse + per-particle
-   vibration, so this just supplies the base angular layout. */
-function buildRingAngles(): Float32Array {
-  const out = new Float32Array(PARTICLE_COUNT);
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    out[i] = (i / PARTICLE_COUNT) * Math.PI * 2;
-  }
-  return out;
-}
-
-/* Per-particle phase offsets for the micro-vibration so each particle
-   jitters with its own rhythm — sums into a "music-reactive" feel
-   without actual audio analysis. */
-function buildJitterPhases(): Float32Array {
-  const out = new Float32Array(PARTICLE_COUNT);
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    out[i] = Math.random() * Math.PI * 2;
   }
   return out;
 }
@@ -136,17 +128,10 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
     const positions = new Float32Array(PARTICLE_COUNT * 3);
     const velocities = new Float32Array(PARTICLE_COUNT * 3);
     const colors = new Float32Array(PARTICLE_COUNT * 3);
-    const ringAngles = buildRingAngles();
-    const jitterPhases = buildJitterPhases();
+    const sphereTargets = buildSphereTargets();
     const discTargets = buildDiscTargets();
     const checkTargets = buildCheckmarkTargets();
-    /* Reusable per-frame ring target buffer — populated each tick with
-       the breathing radius + per-particle vibration so the spinner
-       feels like it's pulsing to a beat. */
-    const ringFrame = new Float32Array(PARTICLE_COUNT * 3);
 
-    /* Drift init — all particles random in a spherical shell. The
-       disc/check distinction only matters once we leave drift. */
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const r = 2.3 + Math.random() * 0.6;
       const theta = Math.random() * Math.PI * 2;
@@ -178,10 +163,6 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
     sctx.fillRect(0, 0, 64, 64);
     const sprite = new THREE.CanvasTexture(spriteCanvas);
 
-    /* AdditiveBlending — disc particles tinted green accumulate into
-       a solid green disc; bright-white check particles on top read as
-       a glowing check. With 200 disc particles at sprite-size 0.12,
-       neighbours overlap heavily and the disc reads as filled. */
     const particleMat = new THREE.PointsMaterial({
       size: 0.16,
       map: sprite,
@@ -198,7 +179,13 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
     let driftWeight = 1;
     let spinnerWeight = 0;
     let checkWeight = 0;
-    let headAngle = 0;
+    /* Rotating light direction for the spinner — sweeps around the
+       sphere, makes a "lit hemisphere" gradient that the eye reads
+       as rotation. */
+    let lightAngle = 0;
+    /* Sphere breath modulates the per-particle target radius so the
+       ball expands and contracts slowly, alive-feeling. */
+    let breathPhase = 0;
     let lastTime = performance.now();
 
     const animate = (time: number) => {
@@ -215,35 +202,22 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
       checkWeight += (wantCheck - checkWeight) * Math.min(dt * 5.0, 1);
 
       if (p === 'spinner') {
-        headAngle += dt * SPIN_SPEED * Math.PI * 2;
-        if (headAngle > Math.PI * 2) headAngle -= Math.PI * 2;
+        lightAngle += dt * LIGHT_SPIN_HZ * Math.PI * 2;
+        if (lightAngle > Math.PI * 2) lightAngle -= Math.PI * 2;
+        breathPhase += dt;
       }
 
-      /* Music-reactive ring radius — composed sinusoids:
-         - 1.4 Hz slow breath (±0.07): a "kick drum" pulse
-         - 3.6 Hz quick swell (±0.03): the "hi-hat" overlay
-         The two together feel like rhythm without needing audio. */
-      const tSec = time * 0.001;
-      const breath = Math.sin(tSec * 1.4 * Math.PI * 2) * 0.07;
-      const swell = Math.sin(tSec * 3.6 * Math.PI * 2) * 0.03;
-      const pulseRadius = SPINNER_RADIUS + (breath + swell) * spinnerWeight;
-      /* Refresh the ring target buffer every frame: base ring + per-
-         particle radial jitter so the dense ring shimmers like it's
-         vibrating. Jitter scales with spinnerWeight so checkmark
-         morph isn't polluted. */
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
-        const a = ringAngles[i];
-        const jitter =
-          Math.sin(tSec * 5.5 + jitterPhases[i]) * 0.035 * spinnerWeight;
-        const r = pulseRadius + jitter;
-        ringFrame[i * 3] = Math.cos(a) * r;
-        ringFrame[i * 3 + 1] = Math.sin(a) * r;
-        ringFrame[i * 3 + 2] = 0;
-      }
+      /* Breath: slow ±3% radius modulation around the sphere. */
+      const breathScale =
+        1 + Math.sin(breathPhase * 1.2 * Math.PI * 2) * 0.03 * spinnerWeight;
 
-      /* Position update — each particle has its own target per phase.
-         Disc particles (indices 0..199) go to disc fill in checkmark
-         phase; check particles (200..249) go to the ✓ stroke. */
+      /* Light direction unit vector — rotates around the Y axis with
+         a slight upward tilt so the lit hemisphere doesn't sit only
+         on the equator. */
+      const lightX = Math.cos(lightAngle) * Math.cos(0.3);
+      const lightY = Math.sin(0.3);
+      const lightZ = Math.sin(lightAngle) * Math.cos(0.3);
+
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const ix = i * 3;
         const isCheck = i >= DISC_COUNT;
@@ -264,9 +238,12 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
 
         if (spinnerWeight > 0.01) {
           const k = Math.min(dt * 6.5 * spinnerWeight, 1);
-          positions[ix] += (ringFrame[ix] - positions[ix]) * k;
-          positions[ix + 1] += (ringFrame[ix + 1] - positions[ix + 1]) * k;
-          positions[ix + 2] += (ringFrame[ix + 2] - positions[ix + 2]) * k;
+          const tx = sphereTargets[ix] * breathScale;
+          const ty = sphereTargets[ix + 1] * breathScale;
+          const tz = sphereTargets[ix + 2] * breathScale;
+          positions[ix] += (tx - positions[ix]) * k;
+          positions[ix + 1] += (ty - positions[ix + 1]) * k;
+          positions[ix + 2] += (tz - positions[ix + 2]) * k;
         }
 
         if (checkWeight > 0.01) {
@@ -280,10 +257,6 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
       }
       particleGeo.attributes.position.needsUpdate = true;
 
-      /* Color update — drift/spinner: all particles white with spinner's
-         brightness wave. Checkmark: disc particles tint green (form
-         the SVG's green fill), check particles stay bright white (form
-         the highlight check stroke on top of the disc). */
       for (let i = 0; i < PARTICLE_COUNT; i++) {
         const ix = i * 3;
         const isCheck = i >= DISC_COUNT;
@@ -292,27 +265,28 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
         let b = 1;
 
         if (spinnerWeight > 0.01) {
-          const particleAngle = (i / PARTICLE_COUNT) * Math.PI * 2;
-          let delta = particleAngle - headAngle;
-          while (delta < -Math.PI) delta += Math.PI * 2;
-          while (delta > Math.PI) delta -= Math.PI * 2;
-          const sigma = 0.42;
-          const brightness = Math.exp(-((delta / sigma) ** 2));
-          const wave = 0.10 + 0.90 * brightness;
-          r = 1 - spinnerWeight * (1 - wave);
-          g = 1 - spinnerWeight * (1 - wave);
-          b = 1 - spinnerWeight * (1 - wave);
+          /* Lit-hemisphere shading — dot product of the particle's
+             unit position with the rotating light direction. Lit
+             side bright, far side dim. Baseline 0.20 so the dim half
+             still reads as "there". */
+          const px = positions[ix];
+          const py = positions[ix + 1];
+          const pz = positions[ix + 2];
+          const mag = Math.sqrt(px * px + py * py + pz * pz) || 1;
+          const dot = (px * lightX + py * lightY + pz * lightZ) / mag;
+          /* Soft falloff: 0.20 baseline + up to +0.80 on the lit pole. */
+          const lit = 0.20 + 0.80 * Math.max(0, dot);
+          r = 1 - spinnerWeight * (1 - lit);
+          g = 1 - spinnerWeight * (1 - lit);
+          b = 1 - spinnerWeight * (1 - lit);
         }
 
         if (checkWeight > 0.01 && !isCheck) {
-          /* Disc particles tint white → SUCCESS_GREEN. */
           const cw = checkWeight;
           r = r * (1 - cw) + SUCCESS_R * cw;
           g = g * (1 - cw) + SUCCESS_G * cw;
           b = b * (1 - cw) + SUCCESS_B * cw;
         }
-        /* Check particles stay white (r=g=b=1 from base) so they pop
-           bright against the green disc under additive blending. */
 
         colors[ix] = r;
         colors[ix + 1] = g;

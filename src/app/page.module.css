@@ -67,10 +67,13 @@
 }
 
 .topBarScrolled {
-  background: rgba(10, 10, 12, 0.55);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  /* Heavier glass — the cold transparent state was reading "see-through"
+     past the user's threshold of acceptable. Dense backdrop with strong
+     blur fully masks scrolling content behind it. */
+  background: rgba(10, 10, 12, 0.78);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 .topBar > .brand {
@@ -172,6 +175,13 @@
 
 .main[data-stage='idle'] {
   padding-top: calc(38vh - 80px);
+  gap: 0;
+}
+
+/* When there's history to show, pull the input up so the shelf has
+   real estate below it — input no longer the only visual anchor. */
+.main[data-stage='idle'][data-has-history='true'] {
+  padding-top: calc(18vh - 40px);
   gap: 0;
 }
 

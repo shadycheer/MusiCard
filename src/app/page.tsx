@@ -12,7 +12,9 @@ import CardSkeleton from '@/components/CardSkeleton';
 import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
 import SongDNAPanel, { type SongDNAState } from '@/components/SongDNAPanel';
 import SongDnaDoneBadge from '@/components/SongDnaDoneBadge';
+import HistoryShelf from '@/components/HistoryShelf';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
+import { useTrackHistory } from '@/hooks/useTrackHistory';
 import { generateQrSvg } from '@/lib/qr';
 import { renderCardCanvas } from '@/lib/renderCardCanvas';
 import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lrclib';
@@ -103,6 +105,7 @@ async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> 
 export default function Page() {
   const [input, setInput] = useState('');
   const { state, refetch } = useTrackInfo(input);
+  const { history, add: addToHistory, remove: removeFromHistory } = useTrackHistory();
   const [qrSvg, setQrSvg] = useState<string>('');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -228,10 +231,13 @@ export default function Page() {
       if (!cancelled) setQrSvg(svg);
     });
     recordEvent('view');
+    /* Persist into local history so the home shelf shows this track
+       next time. Dedupes by sourceUrl and bubbles to position 0. */
+    addToHistory(state.track);
     return () => {
       cancelled = true;
     };
-  }, [state]);
+  }, [state, addToHistory]);
 
   useEffect(() => {
     // Track change → abort any in-flight song-dna stream to free the
@@ -552,7 +558,11 @@ export default function Page() {
         </a>
       </header>
 
-      <main className={styles.main} data-stage={stage}>
+      <main
+        className={styles.main}
+        data-stage={stage}
+        data-has-history={stage === 'idle' && history.length > 0 ? 'true' : 'false'}
+      >
         <div className={styles.inputBlock}>
           <label className={styles.inputLabel} htmlFor="track-input">
             音乐链接
@@ -569,6 +579,14 @@ export default function Page() {
             <p className={styles.inputError}>{state.message}</p>
           )}
         </div>
+
+        {stage === 'idle' && history.length > 0 && (
+          <HistoryShelf
+            history={history}
+            onPick={(url) => setInput(url)}
+            onRemove={removeFromHistory}
+          />
+        )}
 
         {stage === 'loading' && state.kind === 'loading' && (
           <section
