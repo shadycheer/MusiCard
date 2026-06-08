@@ -175,14 +175,20 @@ const QQ_FCG = 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg';
 type QqSongResponse = {
   code: number;
   data?: Array<{
+    mid: string;
     name: string;
     singer: Array<{ name: string }>;
     album: { mid: string; name: string };
   }>;
 };
 
-export async function fetchQqMusicTrack(songMid: string): Promise<UpstreamFields> {
-  const url = `${QQ_FCG}?songmid=${songMid}&format=json&platform=yqq&inCharset=utf-8&outCharset=utf-8`;
+export async function fetchQqMusicTrack(songIdOrMid: string): Promise<UpstreamFields> {
+  /* The fcg endpoint takes either songmid (14-char base62) or songid
+     (numeric) depending on which the share URL exposed. All-digits → id,
+     anything else → mid. We canonicalize the sourceUrl to the mid form
+     either way, since songDetail/{mid} is the public-facing share link. */
+  const param = /^\d+$/.test(songIdOrMid) ? 'songid' : 'songmid';
+  const url = `${QQ_FCG}?${param}=${songIdOrMid}&format=json&platform=yqq&inCharset=utf-8&outCharset=utf-8`;
   const res = await fetch(url, { headers: { Referer: 'https://y.qq.com/' } });
   if (!res.ok) throw new Error(`QQ Music returned ${res.status}`);
   const data = (await res.json()) as QqSongResponse;
@@ -193,12 +199,16 @@ export async function fetchQqMusicTrack(songMid: string): Promise<UpstreamFields
     ? `https://y.qq.com/music/photo_new/T002R800x800M000${song.album.mid}.jpg`
     : '';
 
+  /* Always emit songDetail/{songmid} — that's the canonical share URL
+     QQ Music itself produces. The trackToSlug helper reads this back to
+     route the track from history. */
+  const canonicalMid = song.mid || songIdOrMid;
   return {
     locale: null,
     title: song.name,
     artist: song.singer.map((s) => s.name).join(', '),
     coverUrl,
-    sourceUrl: `https://y.qq.com/n/ryqq/songDetail/${songMid}`,
+    sourceUrl: `https://y.qq.com/n/ryqq/songDetail/${canonicalMid}`,
     albumId: song.album.mid || undefined,
     albumName: song.album.name || undefined,
   };

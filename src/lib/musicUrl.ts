@@ -27,11 +27,14 @@ const NETEASE_TRACK_REGEXES: RegExp[] = [
 const NETEASE_NON_TRACK_REGEX =
   /^https?:\/\/music\.163\.com\/(?:#\/)?(album|playlist|artist|mv|dj|djradio|user)(?:\/|\?)/;
 
-// QQ Music share shapes — songDetail page (desktop / web share), mobile
-// playsong page (i.y.qq.com from app share). songmid is 14 alphanumerics.
+// QQ Music share shapes — desktop songDetail page (uses songmid), mobile
+// playsong page (i.y.qq.com from app share, uses either songmid string or
+// songid numeric depending on which share button was used). The fetcher
+// figures out which API parameter to send based on the id format.
 const QQ_TRACK_REGEXES: RegExp[] = [
   /^https?:\/\/y\.qq\.com\/n\/ryqq\/songDetail\/([A-Za-z0-9]+)(?:\?|$)/,
   /^https?:\/\/i\.y\.qq\.com\/v8\/playsong\.html\?[^ ]*\bsongmid=([A-Za-z0-9]+)/,
+  /^https?:\/\/i\.y\.qq\.com\/v8\/playsong\.html\?[^ ]*\bsongid=(\d+)/,
 ];
 const QQ_NON_TRACK_REGEX =
   /^https?:\/\/y\.qq\.com\/n\/ryqq\/(albumDetail|playlist|playsquare|singer|mv)\//;
