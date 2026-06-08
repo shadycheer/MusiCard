@@ -413,6 +413,49 @@
   font-size: 12px;
 }
 
+/* Stable target slot for the migrating badge animation. 18×18 even
+   when the docked badge isn't mounted yet — the parent measures this
+   rect to know where to translate to. */
+.headerBadgeSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+/* Floating badge that runs the shrink + translate animation between
+   helix center and header slot. Fixed positioning + viewport-pixel
+   CSS vars (--sx/--sy/--ex/--ey) keep it independent of layout shifts
+   beneath it (helix collapse / article slide-up). 0-35% shrinks in
+   place to header-badge size; 35-100% translates to the slot. */
+.migratingBadge {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 50;
+  transform-origin: center;
+  animation: badgeMigrate 700ms cubic-bezier(0.7, 0, 0.3, 1) forwards;
+}
+
+@keyframes badgeMigrate {
+  0% {
+    transform: translate(var(--sx), var(--sy)) translate(-50%, -50%) scale(1);
+  }
+  35% {
+    transform: translate(var(--sx), var(--sy)) translate(-50%, -50%)
+      scale(0.375);
+  }
+  100% {
+    transform: translate(var(--ex), var(--ey)) translate(-50%, -50%)
+      scale(0.375);
+  }
+}
+
 .panelBody {
   padding: 18px;
 }

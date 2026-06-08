@@ -87,14 +87,24 @@ function buildCheckmarkTargets(): Float32Array {
 
 /* Spinner targets — every particle (disc + check) sits on a single
    ring at index-based angles. With 250 particles around radius 1.45,
-   the ring reads as a dense neon torus. */
-function buildRingTargets(): Float32Array {
-  const out = new Float32Array(PARTICLE_COUNT * 3);
+   the ring reads as a dense neon torus. Radius is recomputed per
+   frame in the animation loop to add a breathing pulse + per-particle
+   vibration, so this just supplies the base angular layout. */
+function buildRingAngles(): Float32Array {
+  const out = new Float32Array(PARTICLE_COUNT);
   for (let i = 0; i < PARTICLE_COUNT; i++) {
-    const a = (i / PARTICLE_COUNT) * Math.PI * 2;
-    out[i * 3] = Math.cos(a) * SPINNER_RADIUS;
-    out[i * 3 + 1] = Math.sin(a) * SPINNER_RADIUS;
-    out[i * 3 + 2] = 0;
+    out[i] = (i / PARTICLE_COUNT) * Math.PI * 2;
+  }
+  return out;
+}
+
+/* Per-particle phase offsets for the micro-vibration so each particle
+   jitters with its own rhythm — sums into a "music-reactive" feel
+   without actual audio analysis. */
+function buildJitterPhases(): Float32Array {
+  const out = new Float32Array(PARTICLE_COUNT);
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    out[i] = Math.random() * Math.PI * 2;
   }
   return out;
 }
@@ -126,9 +136,14 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
     const positions = new Float32Array(PARTICLE_COUNT * 3);
     const velocities = new Float32Array(PARTICLE_COUNT * 3);
     const colors = new Float32Array(PARTICLE_COUNT * 3);
-    const ringTargets = buildRingTargets();
+    const ringAngles = buildRingAngles();
+    const jitterPhases = buildJitterPhases();
     const discTargets = buildDiscTargets();
     const checkTargets = buildCheckmarkTargets();
+    /* Reusable per-frame ring target buffer — populated each tick with
+       the breathing radius + per-particle vibration so the spinner
+       feels like it's pulsing to a beat. */
+    const ringFrame = new Float32Array(PARTICLE_COUNT * 3);
 
     /* Drift init — all particles random in a spherical shell. The
        disc/check distinction only matters once we leave drift. */
@@ -204,6 +219,28 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
         if (headAngle > Math.PI * 2) headAngle -= Math.PI * 2;
       }
 
+      /* Music-reactive ring radius — composed sinusoids:
+         - 1.4 Hz slow breath (±0.07): a "kick drum" pulse
+         - 3.6 Hz quick swell (±0.03): the "hi-hat" overlay
+         The two together feel like rhythm without needing audio. */
+      const tSec = time * 0.001;
+      const breath = Math.sin(tSec * 1.4 * Math.PI * 2) * 0.07;
+      const swell = Math.sin(tSec * 3.6 * Math.PI * 2) * 0.03;
+      const pulseRadius = SPINNER_RADIUS + (breath + swell) * spinnerWeight;
+      /* Refresh the ring target buffer every frame: base ring + per-
+         particle radial jitter so the dense ring shimmers like it's
+         vibrating. Jitter scales with spinnerWeight so checkmark
+         morph isn't polluted. */
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const a = ringAngles[i];
+        const jitter =
+          Math.sin(tSec * 5.5 + jitterPhases[i]) * 0.035 * spinnerWeight;
+        const r = pulseRadius + jitter;
+        ringFrame[i * 3] = Math.cos(a) * r;
+        ringFrame[i * 3 + 1] = Math.sin(a) * r;
+        ringFrame[i * 3 + 2] = 0;
+      }
+
       /* Position update — each particle has its own target per phase.
          Disc particles (indices 0..199) go to disc fill in checkmark
          phase; check particles (200..249) go to the ✓ stroke. */
@@ -227,9 +264,9 @@ export default function DNAHelix({ phase = 'drift' }: Props) {
 
         if (spinnerWeight > 0.01) {
           const k = Math.min(dt * 6.5 * spinnerWeight, 1);
-          positions[ix] += (ringTargets[ix] - positions[ix]) * k;
-          positions[ix + 1] += (ringTargets[ix + 1] - positions[ix + 1]) * k;
-          positions[ix + 2] += (ringTargets[ix + 2] - positions[ix + 2]) * k;
+          positions[ix] += (ringFrame[ix] - positions[ix]) * k;
+          positions[ix + 1] += (ringFrame[ix + 1] - positions[ix + 1]) * k;
+          positions[ix + 2] += (ringFrame[ix + 2] - positions[ix + 2]) * k;
         }
 
         if (checkWeight > 0.01) {

@@ -15,14 +15,11 @@ type Props = {
   size?: 'large' | 'small';
 };
 
-/* Both render-sites set the same viewTransitionName so the browser
-   interpolates position when state flips inside startViewTransition. */
 export default function SongDnaDoneBadge({ size = 'small' }: Props) {
   const isLarge = size === 'large';
   return (
     <span
       className={isLarge ? styles.badgeLarge : styles.badgeSmall}
-      style={{ viewTransitionName: 'songdna-done-badge' }}
       aria-label="SONG-DNA 已就绪"
     >
       <svg viewBox="0 0 24 24" aria-hidden>

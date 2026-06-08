@@ -188,12 +188,13 @@ async function handleAiPhase(
       }),
     });
 
+    /* Transient OpenRouter failures (rate limits, 5xx, network blips)
+       are NOT cached as 'ai-miss' — that would burn the verdict and
+       deny later retries. Surface them as a soft miss to the client
+       (lines: null, source: 'ai-miss', but no DB write) so the UI
+       silently degrades instead of showing a broken 502. */
     if (!upstream.ok) {
-      const body = await upstream.text().catch(() => '');
-      return NextResponse.json(
-        { error: `OpenRouter ${upstream.status}: ${body.slice(0, 200)}` },
-        { status: 502 },
-      );
+      return NextResponse.json({ lines: null, source: 'ai-miss' });
     }
 
     const data = (await upstream.json()) as {
@@ -201,17 +202,14 @@ async function handleAiPhase(
     };
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return NextResponse.json({ error: 'empty response from model' }, { status: 502 });
+      return NextResponse.json({ lines: null, source: 'ai-miss' });
     }
 
     let parsed: { hasLyrics: true; lines: string[] } | { hasLyrics: false };
     try {
       parsed = JSON.parse(content);
     } catch {
-      return NextResponse.json(
-        { error: 'model returned non-JSON content' },
-        { status: 502 },
-      );
+      return NextResponse.json({ lines: null, source: 'ai-miss' });
     }
 
     if (!parsed.hasLyrics || !Array.isArray(parsed.lines) || parsed.lines.length === 0) {
@@ -230,11 +228,9 @@ async function handleAiPhase(
 
     void setCachedLyrics(cacheKey, title, artist, lines, 'ai');
     return NextResponse.json({ lines, source: 'ai' });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'unknown error' },
-      { status: 500 },
-    );
+  } catch {
+    // Network failure / timeout — soft-miss, don't cache.
+    return NextResponse.json({ lines: null, source: 'ai-miss' });
   }
 }
 

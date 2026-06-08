@@ -111,12 +111,22 @@ export default function Page() {
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [songDnaState, setSongDnaState] = useState<SongDNAState>({ kind: 'idle' });
-  /* Done-badge migrates: helix center → panel header.
-     Timing — see useEffect below: particles morph (700) → SVG cross-
-     fade in at center (280) → view-transition to header. Re-search
-     pulls this back to 'none' because state.kind transitions through
-     'loading' before the next 'found'. */
-  const [doneBadgeAt, setDoneBadgeAt] = useState<'none' | 'helix' | 'header'>('none');
+  /* Done-badge migration is a 4-stage state machine:
+       none           — no badge anywhere
+       helix-large    — large SVG at helix center, particles cross-faded out
+       migrating      — fixed-positioned badge running shrink + translate
+                        animation toward the header slot
+       header-docked  — small SVG docked in panel header (final)
+     Triggered on FIRST CONTENT (not on 'found') so the badge migrates
+     in parallel with the article streaming in below. */
+  type BadgeStage = 'none' | 'helix-large' | 'migrating' | 'header-docked';
+  const [badgeStage, setBadgeStage] = useState<BadgeStage>('none');
+  const [migrationCoords, setMigrationCoords] = useState<
+    | { from: { x: number; y: number }; to: { x: number; y: number } }
+    | null
+  >(null);
+  const helixAnchorRef = useRef<HTMLDivElement>(null);
+  const headerBadgeRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     setUseMobileShare(shouldUseMobileShare());
@@ -134,45 +144,58 @@ export default function Page() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* SONG-DNA badge lifecycle when content lands:
-       t=0      state→found. Panel switches helix phase to 'checkmark'.
-                Particles morph onto the ✓ stroke AND tint white→green;
-                the tint settles to ~97% by ~900ms.
-       t=1100   setDoneBadgeAt('helix'). The SVG badge fades in at the
-                same screen position as the (now fully-green) particle
-                ✓; the panel simultaneously fades its WebGL layer to
-                0. The two cross-fade — user reads "checkmark solidifies"
-                rather than a hard swap.
-       t=1400   startViewTransition flips to 'header'. The browser
-                interpolates the same-named badge from helix center to
-                panel header (~520ms).
-       After VT Panel sees doneBadgeAt='header' and collapses the
-                stage height to 0, freeing space for the article.
+  /* Trigger predicate — the badge migration starts the moment SONG-DNA
+     content first becomes visible, whether that's a 'final' event
+     (cached payload) or the first streamed chunk landing during a
+     fresh fetch. Letting the migration run in parallel with the
+     streaming article means the user isn't held by a "loading 99%"
+     state when the result is already readable. */
+  const hasSongDnaContent = useMemo(() => {
+    if (songDnaState.kind === 'found') return true;
+    if (
+      songDnaState.kind === 'loading' &&
+      (songDnaState.streamedContent ?? '').length > 0
+    )
+      return true;
+    return false;
+  }, [songDnaState]);
 
-     The 1100ms wait was tuned up from 700ms after observing the SVG
-     appearing while particles were still ~85% tinted — the result
-     felt like a sudden swap rather than a transformation. */
+  /* Badge migration sequence:
+       t=0    hasContent flips true. Panel switches helix phase to
+              'checkmark' — particles morph + tint green (~600ms).
+       t=600  setBadgeStage('helix-large'). Large SVG fades in at
+              helix center; panel cross-fades its WebGL layer to 0.
+       t=900  Measure helix center + header slot rects; setBadgeStage
+              ('migrating'). MigratingBadge mounts at fixed position,
+              runs 700ms CSS keyframe: shrink in place (0-35%) then
+              translate to header slot (35-100%).
+       t=1600 onAnimationEnd → setBadgeStage('header-docked'). Panel
+              header renders the small docked badge in the slot. */
   useEffect(() => {
-    if (songDnaState.kind !== 'found') {
-      setDoneBadgeAt('none');
+    if (!hasSongDnaContent) {
+      setBadgeStage('none');
+      setMigrationCoords(null);
       return;
     }
-    const tHelix = window.setTimeout(() => setDoneBadgeAt('helix'), 1100);
-    const tHeader = window.setTimeout(() => {
-      const flip = () => setDoneBadgeAt('header');
-      // View Transitions API is widely available in evergreen browsers;
-      // Firefox falls back to an instant swap (no animation, no crash).
-      if (typeof document !== 'undefined' && document.startViewTransition) {
-        document.startViewTransition(flip);
-      } else {
-        flip();
+    const tHelix = window.setTimeout(() => setBadgeStage('helix-large'), 600);
+    const tMigrate = window.setTimeout(() => {
+      // Snapshot helix-center + header-slot rects BEFORE the panel
+      // collapses (which happens as a side-effect of stage='migrating').
+      if (helixAnchorRef.current && headerBadgeRef.current) {
+        const h = helixAnchorRef.current.getBoundingClientRect();
+        const hd = headerBadgeRef.current.getBoundingClientRect();
+        setMigrationCoords({
+          from: { x: h.left + h.width / 2, y: h.top + h.height / 2 },
+          to: { x: hd.left + hd.width / 2, y: hd.top + hd.height / 2 },
+        });
       }
-    }, 1400);
+      setBadgeStage('migrating');
+    }, 900);
     return () => {
       window.clearTimeout(tHelix);
-      window.clearTimeout(tHeader);
+      window.clearTimeout(tMigrate);
     };
-  }, [songDnaState.kind]);
+  }, [hasSongDnaContent]);
 
   const lyricLines = useMemo(
     () =>
@@ -637,13 +660,26 @@ export default function Page() {
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>Song DNA</h2>
-                  {doneBadgeAt === 'header' && <SongDnaDoneBadge size="small" />}
+                  {/* Slot always present (fixed 18×18) so the migration
+                      animation has a stable target rect to measure
+                      whether or not the docked badge is currently
+                      mounted. */}
+                  <span
+                    ref={headerBadgeRef}
+                    className={styles.headerBadgeSlot}
+                    aria-hidden={badgeStage !== 'header-docked'}
+                  >
+                    {badgeStage === 'header-docked' && (
+                      <SongDnaDoneBadge size="small" />
+                    )}
+                  </span>
                 </header>
                 <div className={styles.panelBody}>
                   <SongDNAPanel
                     state={songDnaState}
                     onRequest={requestSongDna}
-                    doneBadgeAt={doneBadgeAt}
+                    badgeStage={badgeStage}
+                    helixAnchorRef={helixAnchorRef}
                   />
                 </div>
               </section>
@@ -651,6 +687,28 @@ export default function Page() {
           </div>
         )}
       </main>
+
+      {/* MigratingBadge — fixed-positioned floater that runs the CSS
+          keyframe shrink+translate. Rendered as a sibling of <main> so
+          it escapes any panel clipping and sits above the cover
+          backdrop. Coords are absolute viewport (set via inline CSS
+          vars), so the helix collapsing under it doesn't drag it. */}
+      {badgeStage === 'migrating' && migrationCoords && (
+        <div
+          className={styles.migratingBadge}
+          style={{
+            // @ts-expect-error CSS vars on inline style
+            '--sx': `${migrationCoords.from.x}px`,
+            '--sy': `${migrationCoords.from.y}px`,
+            '--ex': `${migrationCoords.to.x}px`,
+            '--ey': `${migrationCoords.to.y}px`,
+          }}
+          onAnimationEnd={() => setBadgeStage('header-docked')}
+          aria-hidden
+        >
+          <SongDnaDoneBadge size="large" />
+        </div>
+      )}
 
       {fallbackImageUrl && (
         <div

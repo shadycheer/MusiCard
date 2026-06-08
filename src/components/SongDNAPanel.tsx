@@ -42,13 +42,23 @@ export type SongDNAState =
 type Props = {
   state: SongDNAState;
   onRequest: (refresh?: boolean) => void;
-  /** Parent-owned badge lifecycle. The panel reads this to know when
-   *  to cross-fade the particles out (helix) and collapse the stage
-   *  (header). */
-  doneBadgeAt: 'none' | 'helix' | 'header';
+  /** Parent-owned migration stage. The panel reads this to know when
+   *  to fade particles, show the helix-anchored SVG, and collapse the
+   *  stage to make room for the article. */
+  badgeStage: 'none' | 'helix-large' | 'migrating' | 'header-docked';
+  /** Ref to the helix-center anchor element. Parent uses it to measure
+   *  the start position for the migrating badge animation. The anchor
+   *  is always mounted (zero size when no SVG inside) so the ref is
+   *  stable for measurement. */
+  helixAnchorRef?: React.RefObject<HTMLDivElement | null>;
 };
 
-export default function SongDNAPanel({ state, onRequest, doneBadgeAt }: Props) {
+export default function SongDNAPanel({
+  state,
+  onRequest,
+  badgeStage,
+  helixAnchorRef,
+}: Props) {
   const [armed, setArmed] = useState(false);
 
   /* Reset armed when state returns to idle (parent clears the panel
@@ -100,16 +110,17 @@ export default function SongDNAPanel({ state, onRequest, doneBadgeAt }: Props) {
         ? 'checkmark'
         : 'spinner';
 
-  /* Particles cross-fade out the moment the parent flips the badge
-     to "helix" (large SVG appearing at the same screen position).
-     The opacity transition + the SVG fade-in compose into a single
-     "checkmark solidifies" moment. */
-  const helixOpacity = doneBadgeAt === 'none' ? 1 : 0;
+  /* Particles cross-fade out the moment a badge appears anywhere —
+     they would otherwise compete visually with the SVG check. */
+  const helixOpacity = badgeStage === 'none' ? 1 : 0;
 
-  /* Container only collapses after the badge has migrated to the
-     header — the freed vertical space then hands cleanly to the
-     article that's slid up below. */
-  const helixHeight = doneBadgeAt === 'header' ? 0 : HELIX_HEIGHT_PX;
+  /* Container collapses once the migrating badge has left the helix
+     center. The badge animates in viewport-fixed coords, so the
+     collapse underneath is independent and lets the article rise. */
+  const helixHeight =
+    badgeStage === 'migrating' || badgeStage === 'header-docked'
+      ? 0
+      : HELIX_HEIGHT_PX;
 
   const articleText =
     state.kind === 'loading'
@@ -143,11 +154,15 @@ export default function SongDNAPanel({ state, onRequest, doneBadgeAt }: Props) {
           </button>
         )}
 
-        {doneBadgeAt === 'helix' && (
-          <div className={styles.helixBadgeAnchor} aria-hidden>
-            <SongDnaDoneBadge size="large" />
-          </div>
-        )}
+        {/* Anchor is always mounted — gives the parent a stable rect
+            to measure the migrating badge's start position from. */}
+        <div
+          className={styles.helixBadgeAnchor}
+          ref={helixAnchorRef}
+          aria-hidden
+        >
+          {badgeStage === 'helix-large' && <SongDnaDoneBadge size="large" />}
+        </div>
       </div>
 
       {state.kind === 'found' && state.cached && state.cachedAt && (
