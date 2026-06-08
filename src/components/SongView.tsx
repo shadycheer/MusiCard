@@ -240,6 +240,10 @@ export default function SongView({ canonicalUrl }: Props) {
       platform === 'netease'
         ? sourceUrl.match(/[?&]id=(\d+)/)?.[1]
         : undefined;
+    const qqMid =
+      platform === 'qqMusic'
+        ? sourceUrl.match(/\/songDetail\/([A-Za-z0-9]+)/)?.[1]
+        : undefined;
 
     /* Race orchestration — see history at src/app/page.tsx@89fb0e1 for
        the rationale. Both fetches start at t=0 with independent abort
@@ -252,7 +256,7 @@ export default function SongView({ canonicalUrl }: Props) {
       aiCtrl.abort();
     });
 
-    const lrclibP = fetchLyricsLrclib(title, artist, lrclibCtrl.signal, neteaseId)
+    const lrclibP = fetchLyricsLrclib(title, artist, lrclibCtrl.signal, neteaseId, qqMid)
       .catch((err) => {
         if (lrclibCtrl.signal.aborted) return null;
         if (err instanceof DOMException && err.name === 'AbortError') return null;
@@ -270,7 +274,9 @@ export default function SongView({ canonicalUrl }: Props) {
 
       if (first) {
         if (
-          (first.source === 'netease' || first.source === 'lrclib') &&
+          (first.source === 'netease' ||
+            first.source === 'qq' ||
+            first.source === 'lrclib') &&
           first.lines &&
           first.lines.length > 0
         ) {

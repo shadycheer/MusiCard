@@ -6,6 +6,7 @@ import {
   type LyricsSource,
 } from '@/lib/db';
 import { fetchLyricViaWeapi } from '@/lib/neteaseWeapi';
+import { fetchQqLyrics } from '@/lib/upstream';
 
 const LRCLIB_ENDPOINT = 'https://lrclib.net/api/get';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
   const title = request.nextUrl.searchParams.get('title');
   const artist = request.nextUrl.searchParams.get('artist');
   const neteaseId = request.nextUrl.searchParams.get('neteaseId') ?? undefined;
+  const qqMid = request.nextUrl.searchParams.get('qqMid') ?? undefined;
   const phase = request.nextUrl.searchParams.get('phase') ?? 'lrclib';
   if (!title || !artist) {
     return NextResponse.json({ error: 'missing title or artist' }, { status: 400 });
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
   if (phase === 'ai') {
     return handleAiPhase(cacheKey, title, artist, cached);
   }
-  return handleLrclibPhase(cacheKey, title, artist, cached, neteaseId);
+  return handleLrclibPhase(cacheKey, title, artist, cached, neteaseId, qqMid);
 }
 
 async function handleLrclibPhase(
@@ -76,11 +78,15 @@ async function handleLrclibPhase(
   artist: string,
   cached: { lines: string[]; source: LyricsSource } | null,
   neteaseId: string | undefined,
+  qqMid: string | undefined,
 ): Promise<NextResponse<LyricsPayload | { error: string }>> {
   if (cached) {
     // Terminal cache outcomes — return immediately, never re-query.
     if (cached.source === 'netease') {
       return NextResponse.json({ lines: cached.lines, source: 'netease' });
+    }
+    if (cached.source === 'qq') {
+      return NextResponse.json({ lines: cached.lines, source: 'qq' });
     }
     if (cached.source === 'lrclib') {
       return NextResponse.json({ lines: cached.lines, source: 'lrclib' });
@@ -97,10 +103,11 @@ async function handleLrclibPhase(
     return NextResponse.json({ lines: null, source: 'lrclib-miss' });
   }
 
-  // NetEase native lyrics first — authoritative for Chinese/Asian tracks
-  // that LRCLIB doesn't carry. We only attempt this when the URL the user
-  // pasted was a NetEase link (we have the song id); for Spotify / Apple
-  // we skip straight to LRCLIB.
+  /* Platform-native lyrics first for NetEase / QQ — both expose direct
+     lyric endpoints that are usually more reliable than LRCLIB for
+     Chinese/Asian tracks. If we have the platform-specific ID, we ONLY
+     use that source; on miss we fall through to AI without hitting
+     LRCLIB at all. (LRCLIB is reserved for Spotify / Apple Music.) */
   if (neteaseId) {
     try {
       const lines = await fetchLyricViaWeapi(neteaseId);
@@ -109,8 +116,23 @@ async function handleLrclibPhase(
         return NextResponse.json({ lines, source: 'netease' });
       }
     } catch {
-      // Swallow — fall through to LRCLIB rather than failing the request.
+      // Swallow — fall through to lrclib-miss → AI.
     }
+    void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
+    return NextResponse.json({ lines: null, source: 'lrclib-miss' });
+  }
+  if (qqMid) {
+    try {
+      const lines = await fetchQqLyrics(qqMid);
+      if (lines && lines.length > 0) {
+        void setCachedLyrics(cacheKey, title, artist, lines, 'qq');
+        return NextResponse.json({ lines, source: 'qq' });
+      }
+    } catch {
+      // Swallow — fall through to lrclib-miss → AI.
+    }
+    void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
+    return NextResponse.json({ lines: null, source: 'lrclib-miss' });
   }
 
   try {

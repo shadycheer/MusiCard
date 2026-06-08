@@ -171,6 +171,7 @@ export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields>
  *  without it. Cover URL is templated off the album mid (T002R format
  *  is the album-cover bucket). */
 const QQ_FCG = 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg';
+const QQ_LYRIC_FCG = 'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg';
 
 type QqSongResponse = {
   code: number;
@@ -212,4 +213,37 @@ export async function fetchQqMusicTrack(songIdOrMid: string): Promise<UpstreamFi
     albumId: song.album.mid || undefined,
     albumName: song.album.name || undefined,
   };
+}
+
+/** Fetch QQ Music lyrics by songmid. The fcg lyric endpoint returns LRC-
+ *  formatted text (`[mm:ss.xx]line`) plus an optional translation block.
+ *  Parsing mirrors fetchLyricViaWeapi in neteaseWeapi.ts — strip time
+ *  tags + LRC metadata, drop credit lines. Returns null on any failure
+ *  so the caller can fall through to the AI source. */
+export async function fetchQqLyrics(songMid: string): Promise<string[] | null> {
+  const url = `${QQ_LYRIC_FCG}?songmid=${songMid}&format=json&nobase64=1`;
+  try {
+    const res = await fetch(url, { headers: { Referer: 'https://y.qq.com/' } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { code?: number; lyric?: string };
+    if (data.code !== 0 || !data.lyric) return null;
+    const lines = data.lyric
+      .split(/\r?\n/)
+      .map((line) =>
+        line
+          .replace(/^\s*(?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*)+/, '')
+          .replace(/^\s*\[(?:ti|ar|al|by|offset|length):[^\]]*\]\s*$/i, '')
+          .trim(),
+      )
+      .filter((line) => line.length > 0)
+      .filter(
+        (line) =>
+          !/^(作词|作曲|编曲|制作|出品|监制|混音|母带|录音|和声|吉他|贝斯|鼓|键盘)\s*[：:]/i.test(
+            line,
+          ),
+      );
+    return lines.length > 0 ? lines : null;
+  } catch {
+    return null;
+  }
 }

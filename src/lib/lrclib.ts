@@ -3,7 +3,8 @@ export type LyricsSourceTag =
   | 'ai'
   | 'lrclib-miss'
   | 'ai-miss'
-  | 'netease';
+  | 'netease'
+  | 'qq';
 
 export type LyricsFetchResult = {
   lines: string[] | null;
@@ -16,9 +17,11 @@ export async function fetchLyricsLrclib(
   artist: string,
   signal?: AbortSignal,
   neteaseId?: string,
+  qqMid?: string,
 ): Promise<LyricsFetchResult> {
   const params = new URLSearchParams({ title: track, artist });
   if (neteaseId) params.set('neteaseId', neteaseId);
+  if (qqMid) params.set('qqMid', qqMid);
   const res = await fetch(`/api/lyrics?${params.toString()}`, { signal });
   if (!res.ok) {
     const error = `LRCLIB request failed (${res.status})`;

@@ -1,50 +1,42 @@
-/* QQ Music card — light grass surface, disc peeking out from behind
-   the cover (QQ player signature). 320px geometry matches the other
-   share-card variants. */
+/* QQ Music card v4 — restrained light-grass surface, white sleeve +
+   peek disc as the hero, single typographic system, no decorative
+   rails or markers competing with the artwork. */
 
 .card {
   width: calc(320px * var(--s, 1));
-  background:
-    /* Subtle paper texture on top so the surface isn't a flat slab. */
-    radial-gradient(circle at 100% 0%, rgba(253, 205, 24, 0.18) 0%, transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(13, 175, 82, 0.18) 0%, transparent 55%),
-    #B8D982;
-  color: #1A1F14;
+  /* Flat green — no competing radials. Lets the sleeve + disc do the
+     talking. */
+  background: #B8D982;
+  color: #1A2710;
   display: flex;
   flex-direction: column;
-  padding: calc(20px * var(--s, 1));
-  gap: calc(16px * var(--s, 1));
+  padding: calc(22px * var(--s, 1));
+  gap: calc(18px * var(--s, 1));
   overflow: hidden;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
-  box-shadow: 0 calc(20px * var(--s, 1)) calc(48px * var(--s, 1)) rgba(20, 35, 10, 0.20);
+  box-shadow: 0 calc(20px * var(--s, 1)) calc(48px * var(--s, 1)) rgba(28, 40, 14, 0.22);
 }
 
-/* ─── Cover sleeve + peeking disc ──────────────────────────────────── */
+/* ─── Cover sleeve + peek disc ─────────────────────────────────────── */
 
-/* Stage holds the white-bordered sleeve and the dark disc behind it.
-   Layout mirrors QQ Music's official album view: square white sleeve
-   on the left, CD slipping out vertically-centered from behind the
-   sleeve's right edge. Stage height is driven by the sleeve. */
 .coverStage {
   position: relative;
   width: 100%;
 }
 
-/* White paper sleeve — wraps the cover art with a small white border.
-   Width is 82% of the stage so the remaining 18% on the right gives
-   the disc a place to slip out from. Aspect 1:1 keeps it square. */
+/* White sleeve — slimmer padding (6px) so the cover is the hero, not
+   the border. Sleeve takes 82% of stage so the disc can peek out 18%. */
 .coverWrap {
   position: relative;
   width: 82%;
   aspect-ratio: 1 / 1;
-  padding: calc(10px * var(--s, 1));
+  padding: calc(6px * var(--s, 1));
   background: #FFFFFF;
-  border-radius: calc(6px * var(--s, 1));
   box-sizing: border-box;
   box-shadow:
-    0 calc(8px * var(--s, 1)) calc(18px * var(--s, 1)) rgba(20, 35, 10, 0.20),
-    0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.12);
+    0 calc(8px * var(--s, 1)) calc(18px * var(--s, 1)) rgba(28, 40, 14, 0.22),
+    0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.10);
   z-index: 2;
 }
 
@@ -53,13 +45,10 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  border-radius: calc(2px * var(--s, 1));
 }
 
-/* The CD — circular, dark grey, vertically centered against the sleeve
-   and pinned to the stage's right edge. With sleeve at 82% and disc at
-   70%, the disc sits on stage[30%..100%] and the sleeve on stage[0..82%],
-   so ~18% of the stage width (≈26% of the disc diameter) is visible. */
+/* Disc — softened slate that reads against the grass without screaming.
+   Three layers: highlight, concentric grooves, base. */
 .disc {
   position: absolute;
   top: 50%;
@@ -69,21 +58,18 @@
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
-    /* Soft specular highlight */
-    radial-gradient(ellipse 70% 90% at 65% 35%, rgba(255, 255, 255, 0.10) 0%, transparent 55%),
-    /* Concentric grooves */
+    radial-gradient(ellipse 60% 80% at 65% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 55%),
     repeating-radial-gradient(
       circle at 50% 50%,
-      #565A55 0,
-      #565A55 1px,
-      #4A4E48 1px,
-      #4A4E48 2px
+      #6E726B 0,
+      #6E726B 1px,
+      #5C605A 1px,
+      #5C605A 2px
     ),
-    /* Base disc tone — dark cool grey, like a black CD */
-    linear-gradient(135deg, #5A5E59 0%, #3F4340 100%);
+    linear-gradient(135deg, #6E726B 0%, #4A4D48 100%);
   box-shadow:
-    0 calc(4px * var(--s, 1)) calc(10px * var(--s, 1)) rgba(20, 35, 10, 0.25),
-    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.30);
+    0 calc(4px * var(--s, 1)) calc(10px * var(--s, 1)) rgba(28, 40, 14, 0.22),
+    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.25);
   z-index: 1;
 }
 
@@ -91,14 +77,14 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 14%;
-  height: 14%;
+  width: 16%;
+  height: 16%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: #B8D982;
   box-shadow:
-    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.25),
-    0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.20);
+    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.22),
+    inset 0 0 0 calc(3px * var(--s, 1)) #FFFFFF;
 }
 
 /* ─── Song info ────────────────────────────────────────────────────── */
@@ -106,7 +92,7 @@
 .info {
   display: flex;
   flex-direction: column;
-  gap: calc(4px * var(--s, 1));
+  gap: calc(3px * var(--s, 1));
 }
 
 .title {
@@ -114,7 +100,7 @@
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: calc(-0.3px * var(--s, 1));
-  color: #14210C;
+  color: #1A2710;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -124,9 +110,9 @@
 }
 
 .artist {
-  font-size: calc(14px * var(--s, 1));
+  font-size: calc(13.5px * var(--s, 1));
   font-weight: 500;
-  color: rgba(20, 33, 12, 0.62);
+  color: rgba(26, 39, 16, 0.62);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -134,40 +120,23 @@
   line-height: 1.3;
 }
 
-/* ─── Lyrics block ─────────────────────────────────────────────────── */
+/* ─── Lyrics ───────────────────────────────────────────────────────── */
 
-/* No background panel, no left rail (Spotify already owns those). Just
-   a thin brand-green horizontal divider on top with a short thicker
-   marker on its left end — like a section heading in a printed booklet.
-   Type uses a Chinese serif (Songti) to lean into the "album liner
-   notes" feel and step further away from Spotify's sans-serif rail. */
+/* Plain text block — no rail, no marker, no background. Just type set
+   with enough breathing room that it reads like a printed sleeve note.
+   Same sans-serif as the title, so the card has one voice. */
 .lyrics {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: calc(7px * var(--s, 1));
-  padding-top: calc(14px * var(--s, 1));
-  border-top: calc(1px * var(--s, 1)) solid rgba(13, 175, 82, 0.30);
-}
-
-.lyrics::before {
-  content: '';
-  position: absolute;
-  top: calc(-2px * var(--s, 1));
-  left: 0;
-  width: calc(36px * var(--s, 1));
-  height: calc(3px * var(--s, 1));
-  background: #0DAF52;
-  border-radius: calc(1.5px * var(--s, 1));
+  gap: calc(4px * var(--s, 1));
+  padding-top: calc(2px * var(--s, 1));
 }
 
 .lyricLine {
-  font-family: 'Songti SC', 'STSong', 'Source Han Serif SC', 'Noto Serif CJK SC', Georgia, serif;
-  font-size: calc(13.5px * var(--s, 1));
+  font-size: calc(13px * var(--s, 1));
   font-weight: 500;
   line-height: 1.65;
-  letter-spacing: calc(0.5px * var(--s, 1));
-  color: #1A2710;
+  color: rgba(26, 39, 16, 0.85);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -183,7 +152,7 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(16px * var(--s, 1));
-  padding-top: calc(4px * var(--s, 1));
+  padding-top: calc(2px * var(--s, 1));
 }
 
 .brandLockup {
@@ -204,7 +173,6 @@
   height: calc(44px * var(--s, 1));
   flex-shrink: 0;
   background: #ffffff;
-  border-radius: calc(4px * var(--s, 1));
   padding: calc(3px * var(--s, 1));
   box-sizing: border-box;
   box-shadow: 0 calc(1px * var(--s, 1)) calc(3px * var(--s, 1)) rgba(0, 0, 0, 0.10);

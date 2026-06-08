@@ -168,7 +168,8 @@ export type LyricsSource =
   | 'lrclib-miss'
   | 'ai'
   | 'ai-miss'
-  | 'netease';
+  | 'netease'
+  | 'qq';
 
 export type CachedLyrics = {
   lines: string[];
