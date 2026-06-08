@@ -164,21 +164,6 @@ export default function SongDNAPanel({
         </div>
       </div>
 
-      {state.kind === 'found' && state.cached && state.cachedAt && (
-        <div className={styles.cacheMeta}>
-          <span className={styles.cacheTime}>
-            存档于 {formatCacheTime(state.cachedAt)}
-          </span>
-          <button
-            type="button"
-            className={styles.refreshGhost}
-            onClick={() => onRequest(true)}
-          >
-            重新检索
-          </button>
-        </div>
-      )}
-
       {hasArticle && (
         <article className={styles.article}>
           <Markdown>{articleText}</Markdown>
@@ -227,7 +212,7 @@ function Markdown({ children }: { children: string }) {
   );
 }
 
-function formatCacheTime(iso: string): string {
+export function formatCacheTime(iso: string): string {
   try {
     const d = new Date(iso);
     const yyyy = d.getFullYear();

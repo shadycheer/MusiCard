@@ -10,7 +10,10 @@ import {
 import ShareCard from '@/components/ShareCard';
 import CardSkeleton from '@/components/CardSkeleton';
 import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
-import SongDNAPanel, { type SongDNAState } from '@/components/SongDNAPanel';
+import SongDNAPanel, {
+  type SongDNAState,
+  formatCacheTime,
+} from '@/components/SongDNAPanel';
 import SongDnaDoneBadge from '@/components/SongDnaDoneBadge';
 import HistoryShelf from '@/components/HistoryShelf';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
@@ -172,7 +175,16 @@ export default function Page() {
     return false;
   }, [songDnaState]);
 
-  /* Badge migration sequence:
+  /* Skip the whole celebratory animation for cache hits — there's
+     nothing to "wait for" (content is already there), and the fake
+     particle-spin → fly-to-header sequence reads as gratuitous when
+     the actual perceived latency was zero. Detected before the
+     migration scheduler runs so we never enqueue the timers. */
+  const isSongDnaCachedHit =
+    songDnaState.kind === 'found' && songDnaState.cached === true;
+
+  /* Badge migration sequence (FRESH results only — cache hits short-
+     circuit to header-docked above):
        t=0    hasContent flips true. Panel switches helix phase to
               'checkmark' — particles morph + tint green (~450ms).
        t=450  setBadgeStage('helix-large'). Large SVG fades in at
@@ -181,15 +193,22 @@ export default function Page() {
               setBadgeStage('migrating'). MigratingBadge mounts at
               the measured start point, runs a single 700ms keyframe
               that simultaneously shrinks 48→18px AND translates to
-              the header slot. Helix stays open (220px) underneath
+              the header slot. Helix stays open (180px) underneath
               so the article doesn't shift mid-flight.
        t=1350 onAnimationEnd → setBadgeStage('header-docked'). Small
-              badge appears in the header slot at exactly the position
-              where the migrating badge ended. Helix collapses to 0,
-              article slides up cleanly into the freed space. */
+              refresh-button appears in the header slot at exactly the
+              position where the migrating badge ended. Helix collapses
+              to 0, article slides up cleanly into the freed space. */
   useEffect(() => {
     if (!hasSongDnaContent) {
       setBadgeStage('none');
+      setMigrationCoords(null);
+      return;
+    }
+    if (isSongDnaCachedHit) {
+      // Cache hit — collapse helix and dock the badge immediately,
+      // no celebratory animation.
+      setBadgeStage('header-docked');
       setMigrationCoords(null);
       return;
     }
@@ -209,7 +228,7 @@ export default function Page() {
       window.clearTimeout(tHelix);
       window.clearTimeout(tMigrate);
     };
-  }, [hasSongDnaContent]);
+  }, [hasSongDnaContent, isSongDnaCachedHit]);
 
   const lyricLines = useMemo(
     () =>
@@ -712,19 +731,50 @@ export default function Page() {
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>Song DNA</h2>
-                  {/* Slot always present (fixed 18×18) so the migration
-                      animation has a stable target rect to measure
-                      whether or not the docked badge is currently
-                      mounted. */}
-                  <span
-                    ref={headerBadgeRef}
-                    className={styles.headerBadgeSlot}
-                    aria-hidden={badgeStage !== 'header-docked'}
-                  >
-                    {badgeStage === 'header-docked' && (
-                      <SongDnaDoneBadge size="small" />
-                    )}
-                  </span>
+                  {/* Right slot: while migrating, an empty 18×18 box
+                      that the flying badge targets. Once docked, that
+                      slot becomes a reload button (the persistent
+                      affordance), with a cache timestamp to its left. */}
+                  <div className={styles.headerActions}>
+                    {badgeStage === 'header-docked' &&
+                      songDnaState.kind === 'found' &&
+                      songDnaState.cachedAt && (
+                        <span className={styles.headerStamp}>
+                          {formatCacheTime(songDnaState.cachedAt)}
+                        </span>
+                      )}
+                    <span
+                      ref={headerBadgeRef}
+                      className={styles.headerBadgeSlot}
+                      aria-hidden={badgeStage !== 'header-docked'}
+                    >
+                      {badgeStage === 'header-docked' &&
+                        songDnaState.kind === 'found' && (
+                          <button
+                            type="button"
+                            className={styles.headerRefresh}
+                            onClick={() => requestSongDna(true)}
+                            aria-label="重新检索"
+                            title="重新检索"
+                          >
+                            <svg
+                              viewBox="0 0 16 16"
+                              width="11"
+                              height="11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
+                              <path d="M13.5 2.5v3h-3" />
+                            </svg>
+                          </button>
+                        )}
+                    </span>
+                  </div>
                 </header>
                 <div className={styles.panelBody}>
                   <SongDNAPanel

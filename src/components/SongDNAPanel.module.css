@@ -93,27 +93,11 @@
   pointer-events: none;
 }
 
-/* ─── Cache strip ─────────────────────────────────────────────────── */
+/* ─── Ghost button (empty/error retry — cache refresh now lives in
+   the panel header as the unified reload icon, see page.module.css's
+   .headerRefresh). ────────────────────────────────────────────── */
 
-.cacheMeta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  color: var(--text-mute);
-  font-size: 12px;
-}
-
-.cacheTime {
-  flex: 1;
-  min-width: 0;
-}
-
-/* ─── Ghost buttons (empty/error retry + cache refresh) ──────────── */
-
-.retryGhost,
-.refreshGhost {
+.retryGhost {
   align-self: flex-start;
   min-height: 30px;
   padding: 0 14px;
@@ -130,15 +114,7 @@
     color 0.14s ease;
 }
 
-.refreshGhost {
-  align-self: flex-end;
-  background: transparent;
-  color: var(--text-soft);
-  font-size: 12px;
-}
-
-.retryGhost:hover,
-.refreshGhost:hover {
+.retryGhost:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.26);
 }
