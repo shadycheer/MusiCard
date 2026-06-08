@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
 
   const cacheKey = `netease:${trackId}`;
   const cached = await getCachedTrack(cacheKey);
-  if (cached) return NextResponse.json(toResponse(cached));
+  /* Self-heal pre-album-schema rows — see spotify-track/route.ts for context. */
+  if (cached && cached.albumName) {
+    return NextResponse.json(toResponse(cached));
+  }
 
   try {
     const upstream = await fetchNeteaseTrack(trackId);
@@ -23,6 +26,7 @@ export async function GET(request: NextRequest) {
     void setCachedTrack(cacheKey, fresh);
     return NextResponse.json(toResponse(fresh));
   } catch (err) {
+    if (cached) return NextResponse.json(toResponse(cached));
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'unknown error' },
       { status: 500 },

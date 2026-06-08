@@ -127,6 +127,41 @@ export async function listRefreshCandidates(limit: number): Promise<RefreshCandi
   }
 }
 
+/** Find rows whose album metadata is missing — rows written before the
+ *  2026-06-09 schema bump have album_id/album_name NULL. The album-backfill
+ *  cron consumes this to lazily re-fetch upstream and fill them in. */
+export async function listAlbumBackfillCandidates(
+  limit: number,
+): Promise<RefreshCandidate[]> {
+  if (!sql) return [];
+  await ensureTracksSchema();
+  try {
+    const rows = (await sql`
+      SELECT cache_key, platform, external_id, country, locale
+      FROM tracks
+      WHERE album_name IS NULL
+      ORDER BY last_hit_at DESC NULLS LAST
+      LIMIT ${limit}
+    `) as Array<{
+      cache_key: string;
+      platform: Platform;
+      external_id: string;
+      country: string | null;
+      locale: string | null;
+    }>;
+    return rows.map((r) => ({
+      cacheKey: r.cache_key,
+      platform: r.platform,
+      externalId: r.external_id,
+      country: r.country,
+      locale: r.locale,
+    }));
+  } catch (err) {
+    console.error('[db] listAlbumBackfillCandidates failed:', err);
+    return [];
+  }
+}
+
 /** Update metadata for an existing cached track without touching hit_count.
  *  Used by the cron refresher — the row was already counted when first cached. */
 export async function updateCachedTrack(

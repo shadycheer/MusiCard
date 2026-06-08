@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
   const cacheKey = `apple:${country}:${trackId}`;
 
   const cached = await getCachedTrack(cacheKey);
-  if (cached) return NextResponse.json(toResponse(cached));
+  /* Self-heal pre-album-schema rows — see spotify-track/route.ts for context. */
+  if (cached && cached.albumName) {
+    return NextResponse.json(toResponse(cached));
+  }
 
   try {
     const upstream = await fetchAppleMusicTrack(trackId, country, sourceUrl);
@@ -30,6 +33,7 @@ export async function GET(request: NextRequest) {
     void setCachedTrack(cacheKey, fresh);
     return NextResponse.json(toResponse(fresh));
   } catch (err) {
+    if (cached) return NextResponse.json(toResponse(cached));
     const msg = err instanceof Error ? err.message : 'unknown error';
     const status = msg === 'track not found' ? 404 : 500;
     return NextResponse.json({ error: msg }, { status });
