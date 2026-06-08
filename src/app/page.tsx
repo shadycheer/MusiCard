@@ -731,10 +731,16 @@ export default function Page() {
               <section className={styles.panel}>
                 <header className={styles.panelHead}>
                   <h2 className={styles.panelTitle}>Song DNA</h2>
-                  {/* Right slot: while migrating, an empty 18×18 box
-                      that the flying badge targets. Once docked, that
-                      slot becomes a reload button (the persistent
-                      affordance), with a cache timestamp to its left. */}
+                  {/* Right slot: while migrating, an empty 20×20 box
+                      that the flying badge targets. Once docked, the
+                      slot mounts a reload button (the persistent
+                      affordance), with a cache timestamp to its left.
+                      Guards live on badgeStage only — not on
+                      songDnaState.kind — because the migration
+                      finishes within ~1s while streaming continues
+                      for many seconds. Gating the button on kind
+                      ==='found' would leave the slot empty during
+                      that gap. */}
                   <div className={styles.headerActions}>
                     {badgeStage === 'header-docked' &&
                       songDnaState.kind === 'found' &&
@@ -748,31 +754,31 @@ export default function Page() {
                       className={styles.headerBadgeSlot}
                       aria-hidden={badgeStage !== 'header-docked'}
                     >
-                      {badgeStage === 'header-docked' &&
-                        songDnaState.kind === 'found' && (
-                          <button
-                            type="button"
-                            className={styles.headerRefresh}
-                            onClick={() => requestSongDna(true)}
-                            aria-label="重新检索"
-                            title="重新检索"
+                      {badgeStage === 'header-docked' && (
+                        <button
+                          type="button"
+                          className={styles.headerRefresh}
+                          onClick={() => requestSongDna(true)}
+                          disabled={songDnaState.kind === 'loading'}
+                          aria-label="重新检索"
+                          title="重新检索"
+                        >
+                          <svg
+                            viewBox="0 0 16 16"
+                            width="11"
+                            height="11"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.7"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
                           >
-                            <svg
-                              viewBox="0 0 16 16"
-                              width="11"
-                              height="11"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.7"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden
-                            >
-                              <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
-                              <path d="M13.5 2.5v3h-3" />
-                            </svg>
-                          </button>
-                        )}
+                            <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
+                            <path d="M13.5 2.5v3h-3" />
+                          </svg>
+                        </button>
+                      )}
                     </span>
                   </div>
                 </header>
