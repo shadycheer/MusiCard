@@ -15,6 +15,12 @@ type Props = {
   size?: 'large' | 'small';
 };
 
+/* White check on green disc — matches the additive particle render
+   (which can only do bright colors) so the cross-fade stays seamless
+   end-to-end, and is the standard "completion badge" visual (iCloud,
+   Material Design, etc.). Same design at both sizes — the migration
+   from helix center to header dock is purely scale + translate, no
+   color swap mid-flight. */
 export default function SongDnaDoneBadge({ size = 'small' }: Props) {
   const isLarge = size === 'large';
   return (
@@ -26,8 +32,8 @@ export default function SongDnaDoneBadge({ size = 'small' }: Props) {
         <circle cx="12" cy="12" r="11" fill="#1ED760" />
         <path
           d="M7.2 12.2 10.6 15.6 16.8 9.2"
-          stroke={isLarge ? '#ffffff' : '#0a0a0a'}
-          strokeWidth="2.4"
+          stroke="#ffffff"
+          strokeWidth="2.6"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"

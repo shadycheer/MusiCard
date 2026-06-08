@@ -13,7 +13,11 @@ const AI_MODEL = (process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro').re
   /:online$/,
   '',
 );
-const LRCLIB_TIMEOUT_MS = 4500;
+/* 8s rather than 4.5s — LRCLIB is hosted in EU and can take 3-6s
+   for cold queries against rare track names. 4.5s was over-tripping
+   the timeout and forcing every non-fast request into the slow AI
+   fallback path. */
+const LRCLIB_TIMEOUT_MS = 8000;
 
 /* OpenRouter server-side web search — kicked on for the AI phase so the
    model can actually look songs up instead of having to rely on training
@@ -218,9 +222,15 @@ async function handleAiPhase(
       });
     }
 
+    /* Models frequently wrap JSON in markdown code fences (```json ... ```)
+       or prepend a preamble like "Here's the result: { ... }" — even
+       with response_format:json_object set, since OpenRouter forwards
+       to providers that don't all honor it strictly. extractJsonObject
+       handles both cases by stripping fences first, then falling back
+       to the first {...} substring. */
     let parsed: { hasLyrics: true; lines: string[] } | { hasLyrics: false };
     try {
-      parsed = JSON.parse(content);
+      parsed = JSON.parse(extractJsonObject(content));
     } catch {
       console.error(
         `[lyrics] AI fallback returned non-JSON content: ${content.slice(0, 200)}`,
@@ -269,7 +279,9 @@ const AI_SYSTEM_PROMPT = `你的任务是查找这首歌真实存在的歌词。
 4. 不要把"听起来像副歌"的句子当成真歌词。
 5. 完全找不到这首歌就返回 {"hasLyrics": false}。
 
-输出 JSON：
+输出格式（极其重要）：
+- 只输出原始 JSON 对象本身，不要包裹在 markdown 代码块里（不要写 \`\`\`json）
+- 不要在 JSON 之前或之后加任何说明文字、preamble 或后记
 - 找到：{"hasLyrics": true, "lines": ["第一行", "第二行", ...]}
 - 找不到：{"hasLyrics": false}
 
@@ -284,6 +296,21 @@ function aiUserPrompt(title: string, artist: string): string {
 艺人：${artist}
 
 请按 system 规则返回 JSON。`;
+}
+
+/* Pulls a JSON object substring out of free-form model output.
+   Handles three observed model behaviours:
+   1. raw JSON: "{...}" — passthrough
+   2. fenced JSON: "```json\n{...}\n```" — strip fences
+   3. preamble + fenced or bare JSON: "Here's the result: {...}" —
+      find first { and last } */
+function extractJsonObject(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenced) return fenced[1].trim();
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first >= 0 && last > first) return text.slice(first, last + 1);
+  return text.trim();
 }
 
 function parseLyricsRaw(raw: string): string[] {
