@@ -162,25 +162,27 @@ export default function Page() {
 
   /* Badge migration sequence:
        t=0    hasContent flips true. Panel switches helix phase to
-              'checkmark' — particles morph + tint green (~600ms).
-       t=600  setBadgeStage('helix-large'). Large SVG fades in at
+              'checkmark' — particles morph + tint green (~450ms).
+       t=450  setBadgeStage('helix-large'). Large SVG fades in at
               helix center; panel cross-fades its WebGL layer to 0.
-       t=900  Measure helix center + header slot rects; setBadgeStage
-              ('migrating'). MigratingBadge mounts at fixed position,
-              runs 700ms CSS keyframe: shrink in place (0-35%) then
-              translate to header slot (35-100%).
-       t=1600 onAnimationEnd → setBadgeStage('header-docked'). Panel
-              header renders the small docked badge in the slot. */
+       t=650  Measure helix-center + header-slot rects. Then
+              setBadgeStage('migrating'). MigratingBadge mounts at
+              the measured start point, runs a single 700ms keyframe
+              that simultaneously shrinks 48→18px AND translates to
+              the header slot. Helix stays open (220px) underneath
+              so the article doesn't shift mid-flight.
+       t=1350 onAnimationEnd → setBadgeStage('header-docked'). Small
+              badge appears in the header slot at exactly the position
+              where the migrating badge ended. Helix collapses to 0,
+              article slides up cleanly into the freed space. */
   useEffect(() => {
     if (!hasSongDnaContent) {
       setBadgeStage('none');
       setMigrationCoords(null);
       return;
     }
-    const tHelix = window.setTimeout(() => setBadgeStage('helix-large'), 600);
+    const tHelix = window.setTimeout(() => setBadgeStage('helix-large'), 450);
     const tMigrate = window.setTimeout(() => {
-      // Snapshot helix-center + header-slot rects BEFORE the panel
-      // collapses (which happens as a side-effect of stage='migrating').
       if (helixAnchorRef.current && headerBadgeRef.current) {
         const h = helixAnchorRef.current.getBoundingClientRect();
         const hd = headerBadgeRef.current.getBoundingClientRect();
@@ -190,7 +192,7 @@ export default function Page() {
         });
       }
       setBadgeStage('migrating');
-    }, 900);
+    }, 650);
     return () => {
       window.clearTimeout(tHelix);
       window.clearTimeout(tMigrate);

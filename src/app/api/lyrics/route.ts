@@ -190,11 +190,19 @@ async function handleAiPhase(
 
     /* Transient OpenRouter failures (rate limits, 5xx, network blips)
        are NOT cached as 'ai-miss' — that would burn the verdict and
-       deny later retries. Surface them as a soft miss to the client
-       (lines: null, source: 'ai-miss', but no DB write) so the UI
-       silently degrades instead of showing a broken 502. */
+       deny later retries. We return 200 + source:'ai-miss' so the
+       UI degrades gracefully (no broken 502 in the network tab), but
+       the structured `error` field is preserved end-to-end:
+       - logged via console.error here so it shows in the dev server
+       - returned in the response body so the client can console.warn
+       - visible to error monitoring (Sentry etc.) as a 200 with an
+         error field, instead of being swallowed
+       i.e. softer than 502, but still observable. */
     if (!upstream.ok) {
-      return NextResponse.json({ lines: null, source: 'ai-miss' });
+      const body = await upstream.text().catch(() => '');
+      const detail = `OpenRouter ${upstream.status}: ${body.slice(0, 200)}`;
+      console.error(`[lyrics] AI fallback upstream failed — ${detail}`);
+      return NextResponse.json({ lines: null, source: 'ai-miss', error: detail });
     }
 
     const data = (await upstream.json()) as {
@@ -202,14 +210,26 @@ async function handleAiPhase(
     };
     const content = data.choices?.[0]?.message?.content;
     if (!content) {
-      return NextResponse.json({ lines: null, source: 'ai-miss' });
+      console.error('[lyrics] AI fallback returned empty content');
+      return NextResponse.json({
+        lines: null,
+        source: 'ai-miss',
+        error: 'empty model response',
+      });
     }
 
     let parsed: { hasLyrics: true; lines: string[] } | { hasLyrics: false };
     try {
       parsed = JSON.parse(content);
     } catch {
-      return NextResponse.json({ lines: null, source: 'ai-miss' });
+      console.error(
+        `[lyrics] AI fallback returned non-JSON content: ${content.slice(0, 200)}`,
+      );
+      return NextResponse.json({
+        lines: null,
+        source: 'ai-miss',
+        error: 'model returned non-JSON content',
+      });
     }
 
     if (!parsed.hasLyrics || !Array.isArray(parsed.lines) || parsed.lines.length === 0) {
@@ -228,9 +248,12 @@ async function handleAiPhase(
 
     void setCachedLyrics(cacheKey, title, artist, lines, 'ai');
     return NextResponse.json({ lines, source: 'ai' });
-  } catch {
-    // Network failure / timeout — soft-miss, don't cache.
-    return NextResponse.json({ lines: null, source: 'ai-miss' });
+  } catch (err) {
+    // Network failure / timeout — soft-miss, but echo the cause so
+    // the dev log + client console + monitoring all see what broke.
+    const detail = err instanceof Error ? err.message : 'unknown network error';
+    console.error(`[lyrics] AI fallback threw — ${detail}`);
+    return NextResponse.json({ lines: null, source: 'ai-miss', error: detail });
   }
 }
 

@@ -114,13 +114,12 @@ export default function SongDNAPanel({
      they would otherwise compete visually with the SVG check. */
   const helixOpacity = badgeStage === 'none' ? 1 : 0;
 
-  /* Container collapses once the migrating badge has left the helix
-     center. The badge animates in viewport-fixed coords, so the
-     collapse underneath is independent and lets the article rise. */
-  const helixHeight =
-    badgeStage === 'migrating' || badgeStage === 'header-docked'
-      ? 0
-      : HELIX_HEIGHT_PX;
+  /* Container only collapses after the migrating badge has DOCKED.
+     Collapsing during 'migrating' would cause the article to slide
+     up under the moving badge — visually distracting. By holding the
+     helix open through the migration, the badge animates over a
+     stationary layout, then the helix collapses cleanly afterward. */
+  const helixHeight = badgeStage === 'header-docked' ? 0 : HELIX_HEIGHT_PX;
 
   const articleText =
     state.kind === 'loading'

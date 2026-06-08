@@ -21,13 +21,15 @@ export async function fetchLyricsLrclib(
   if (neteaseId) params.set('neteaseId', neteaseId);
   const res = await fetch(`/api/lyrics?${params.toString()}`, { signal });
   if (!res.ok) {
-    return {
-      lines: null,
-      source: 'lrclib-miss',
-      error: `LRCLIB request failed (${res.status})`,
-    };
+    const error = `LRCLIB request failed (${res.status})`;
+    console.warn(`[lyrics] ${error}`);
+    return { lines: null, source: 'lrclib-miss', error };
   }
-  return (await res.json()) as LyricsFetchResult;
+  const result = (await res.json()) as LyricsFetchResult;
+  if (result.error) {
+    console.warn(`[lyrics] LRCLIB soft-miss: ${result.error}`);
+  }
+  return result;
 }
 
 export async function fetchLyricsAi(
@@ -39,13 +41,19 @@ export async function fetchLyricsAi(
   const res = await fetch(url, { signal });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
-    return {
-      lines: null,
-      source: 'ai-miss',
-      error: body.error ?? `AI lyrics request failed (${res.status})`,
-    };
+    const error = body.error ?? `AI lyrics request failed (${res.status})`;
+    console.warn(`[lyrics] AI fallback failed (HTTP ${res.status}): ${error}`);
+    return { lines: null, source: 'ai-miss', error };
   }
-  return (await res.json()) as LyricsFetchResult;
+  const result = (await res.json()) as LyricsFetchResult;
+  /* Transient upstream failures come back as 200 + source:'ai-miss'
+     + an `error` field (see /api/lyrics route). Surface that to the
+     browser console so dev / Sentry / etc. can still see it instead
+     of it being silently swallowed by the UI's "no lyrics" branch. */
+  if (result.error) {
+    console.warn(`[lyrics] AI fallback soft-miss: ${result.error}`);
+  }
+  return result;
 }
 
 export function parseLyrics(raw: string): string[] {
