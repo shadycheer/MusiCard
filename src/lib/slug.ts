@@ -31,6 +31,7 @@ export function buildSlug(
 ): string {
   if (platform === 'spotify') return `spotify-${externalId}`;
   if (platform === 'netease') return `netease-${externalId}`;
+  if (platform === 'qqMusic') return `qq-${externalId}`;
   if (platform === 'appleMusic') {
     return `apple-${country ?? 'us'}-${externalId}`;
   }
@@ -48,6 +49,10 @@ export function trackToSlug(t: Track): string | null {
   if (t.platform === 'netease') {
     const m = t.sourceUrl.match(/\bid=(\d+)/);
     return m ? `netease-${m[1]}` : null;
+  }
+  if (t.platform === 'qqMusic') {
+    const m = t.sourceUrl.match(/\/songDetail\/([A-Za-z0-9]+)/);
+    return m ? `qq-${m[1]}` : null;
   }
   if (t.platform === 'appleMusic') {
     /* Apple URLs look like /{country}/album/{slug}/{albumId}?i={trackId}
@@ -90,6 +95,16 @@ export function parseSlug(slug: string): ParsedSlug | null {
       externalId: id,
       country: null,
       canonicalUrl: `https://music.163.com/song?id=${id}`,
+    };
+  }
+  if (slug.startsWith('qq-')) {
+    const id = slug.slice('qq-'.length);
+    if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+    return {
+      platform: 'qqMusic',
+      externalId: id,
+      country: null,
+      canonicalUrl: `https://y.qq.com/n/ryqq/songDetail/${id}`,
     };
   }
   if (slug.startsWith('apple-')) {

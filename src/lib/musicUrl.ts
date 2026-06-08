@@ -1,4 +1,4 @@
-export type Platform = 'spotify' | 'appleMusic' | 'netease';
+export type Platform = 'spotify' | 'appleMusic' | 'netease' | 'qqMusic';
 
 export type ParseResult =
   | {
@@ -26,6 +26,15 @@ const NETEASE_TRACK_REGEXES: RegExp[] = [
 ];
 const NETEASE_NON_TRACK_REGEX =
   /^https?:\/\/music\.163\.com\/(?:#\/)?(album|playlist|artist|mv|dj|djradio|user)(?:\/|\?)/;
+
+// QQ Music share shapes — songDetail page (desktop / web share), mobile
+// playsong page (i.y.qq.com from app share). songmid is 14 alphanumerics.
+const QQ_TRACK_REGEXES: RegExp[] = [
+  /^https?:\/\/y\.qq\.com\/n\/ryqq\/songDetail\/([A-Za-z0-9]+)(?:\?|$)/,
+  /^https?:\/\/i\.y\.qq\.com\/v8\/playsong\.html\?[^ ]*\bsongmid=([A-Za-z0-9]+)/,
+];
+const QQ_NON_TRACK_REGEX =
+  /^https?:\/\/y\.qq\.com\/n\/ryqq\/(albumDetail|playlist|playsquare|singer|mv)\//;
 
 export function parseMusicUrl(input: string): ParseResult {
   const trimmed = input.trim();
@@ -75,7 +84,36 @@ export function parseMusicUrl(input: string): ParseResult {
   const neteaseNon = trimmed.match(NETEASE_NON_TRACK_REGEX);
   if (neteaseNon) return { kind: 'non-track', type: neteaseNon[1] };
 
+  const qqTrack = parseQqTrack(trimmed);
+  if (qqTrack) {
+    return {
+      kind: 'ok',
+      platform: 'qqMusic',
+      canonicalUrl: qqTrack.canonicalUrl,
+      cacheKey: `qq:${qqTrack.trackId}`,
+      externalId: qqTrack.trackId,
+      country: null,
+    };
+  }
+  const qqNon = trimmed.match(QQ_NON_TRACK_REGEX);
+  if (qqNon) return { kind: 'non-track', type: qqNon[1] };
+
   return { kind: 'invalid' };
+}
+
+function parseQqTrack(
+  url: string,
+): { canonicalUrl: string; trackId: string } | null {
+  for (const re of QQ_TRACK_REGEXES) {
+    const m = url.match(re);
+    if (m) {
+      return {
+        canonicalUrl: `https://y.qq.com/n/ryqq/songDetail/${m[1]}`,
+        trackId: m[1],
+      };
+    }
+  }
+  return null;
 }
 
 function parseNeteaseTrack(

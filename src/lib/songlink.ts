@@ -28,7 +28,9 @@ export async function fetchTrack(
       ? await fetchAppleMusicTrack(canonicalUrl, signal)
       : platform === 'netease'
         ? await fetchNeteaseTrack(canonicalUrl, signal)
-        : await fetchSpotifyTrack(canonicalUrl, signal);
+        : platform === 'qqMusic'
+          ? await fetchQqMusicTrack(canonicalUrl, signal)
+          : await fetchSpotifyTrack(canonicalUrl, signal);
 
   setCachedTrack(canonicalUrl, track);
   return track;
@@ -81,6 +83,32 @@ async function fetchNeteaseTrack(
     coverUrl: data.coverUrl,
     sourceUrl: data.sourceUrl || canonicalUrl,
     platform: 'netease',
+    albumId: data.albumId ?? undefined,
+    albumName: data.albumName ?? undefined,
+  };
+}
+
+async function fetchQqMusicTrack(
+  canonicalUrl: string,
+  signal?: AbortSignal,
+): Promise<Track> {
+  const match = canonicalUrl.match(/\/songDetail\/([A-Za-z0-9]+)/);
+  if (!match) throw new Error('QQ Music URL missing songmid');
+  const trackId = match[1];
+
+  const res = await fetch(`/api/qq-track?id=${trackId}`, { signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error || `查询失败 (${res.status})`);
+  }
+  const data = (await res.json()) as TrackApiResponse;
+
+  return {
+    title: data.title,
+    artist: data.artist,
+    coverUrl: data.coverUrl,
+    sourceUrl: data.sourceUrl || canonicalUrl,
+    platform: 'qqMusic',
     albumId: data.albumId ?? undefined,
     albumName: data.albumName ?? undefined,
   };

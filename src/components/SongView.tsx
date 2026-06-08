@@ -45,7 +45,9 @@ function sanitizeFilename(title: string, platform: Platform): string {
       ? 'spotify-card'
       : platform === 'netease'
         ? 'netease-card'
-        : 'apple-music-card';
+        : platform === 'qqMusic'
+          ? 'qq-music-card'
+          : 'apple-music-card';
   return `${prefix}-${cleaned || 'track'}.png`;
 }
 

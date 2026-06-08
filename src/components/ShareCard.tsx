@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import SpotifyCard from './SpotifyCard';
 import AppleMusicCard from './AppleMusicCard';
 import NeteaseCard from './NeteaseCard';
+import QqMusicCard from './QqMusicCard';
 import type { Platform } from '../lib/musicUrl';
 
 type Props = {
@@ -17,6 +18,7 @@ const ShareCard = forwardRef<HTMLDivElement, Props>(
   ({ platform, ...rest }, ref) => {
     if (platform === 'spotify') return <SpotifyCard ref={ref} {...rest} />;
     if (platform === 'netease') return <NeteaseCard ref={ref} {...rest} />;
+    if (platform === 'qqMusic') return <QqMusicCard ref={ref} {...rest} />;
     return <AppleMusicCard ref={ref} {...rest} />;
   },
 );

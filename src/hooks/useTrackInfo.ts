@@ -26,7 +26,7 @@ export function useTrackInfo(input: string): { state: FetchState; refetch: () =>
 
     const parsed = parseMusicUrl(value);
     if (parsed.kind === 'invalid') {
-      setState({ kind: 'invalid', message: '请粘贴 Spotify / Apple Music / 网易云 单曲链接' });
+      setState({ kind: 'invalid', message: '请粘贴 Spotify / Apple Music / 网易云 / QQ 音乐 单曲链接' });
       return;
     }
     if (parsed.kind === 'non-track') {

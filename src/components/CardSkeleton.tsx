@@ -12,6 +12,7 @@ type Props = {
 export default function CardSkeleton({ platform }: Props) {
   if (platform === 'netease') return <NeteaseSkeleton />;
   if (platform === 'appleMusic') return <AppleSkeleton />;
+  if (platform === 'qqMusic') return <QqMusicSkeleton />;
   return <SpotifySkeleton />;
 }
 
@@ -61,6 +62,22 @@ function NeteaseSkeleton() {
       </div>
       <div className={styles.foot}>
         <div className={styles.brandNetease} />
+        <div className={styles.qr} />
+      </div>
+    </div>
+  );
+}
+
+function QqMusicSkeleton() {
+  return (
+    <div className={`${styles.card} ${styles.cardQq}`} aria-hidden>
+      <div className={styles.coverSquare} />
+      <div className={styles.info}>
+        <div className={styles.titleBar} />
+        <div className={styles.artistBar} />
+      </div>
+      <div className={styles.foot}>
+        <div className={styles.brandQq} />
         <div className={styles.qr} />
       </div>
     </div>

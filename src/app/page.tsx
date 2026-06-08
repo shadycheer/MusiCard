@@ -33,7 +33,7 @@ export default function Page() {
     const t = window.setTimeout(() => {
       const parsed = parseMusicUrl(input);
       if (parsed.kind === 'invalid') {
-        setInputError('请粘贴 Spotify / Apple Music / 网易云 单曲链接');
+        setInputError('请粘贴 Spotify / Apple Music / 网易云 / QQ 音乐 单曲链接');
         return;
       }
       if (parsed.kind === 'non-track') {
@@ -94,7 +94,7 @@ export default function Page() {
           <input
             id="track-input"
             className={styles.input}
-            placeholder="粘贴 Spotify / Apple Music / 网易云 单曲链接"
+            placeholder="粘贴 Spotify / Apple Music / 网易云 / QQ 音乐 单曲链接"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             autoFocus

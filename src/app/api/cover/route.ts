@@ -16,6 +16,7 @@ const ALLOWED_HOSTS = new Set([
   'a3.mzstatic.com',
   'a4.mzstatic.com',
   'a5.mzstatic.com',
+  'y.qq.com',
 ]);
 
 // NetEase image CDN uses pN.music.126.net where N varies — match by suffix.
@@ -48,12 +49,20 @@ export async function GET(request: NextRequest) {
   }
 
   const isNetEase = parsed.hostname.endsWith('.music.126.net');
+  const isQq = parsed.hostname === 'y.qq.com';
+
+  /* NetEase and QQ image CDNs both reject requests without a same-origin
+     Referer header. Spotify / Apple CDNs don't care. */
+  const referer = isNetEase
+    ? 'https://music.163.com/'
+    : isQq
+      ? 'https://y.qq.com/'
+      : undefined;
 
   try {
     const upstream = await fetch(parsed.toString(), {
       cache: 'force-cache',
-      // NetEase image CDN rejects requests with no/foreign Referer.
-      headers: isNetEase ? { Referer: 'https://music.163.com/' } : undefined,
+      headers: referer ? { Referer: referer } : undefined,
     });
     if (!upstream.ok) {
       return NextResponse.json(

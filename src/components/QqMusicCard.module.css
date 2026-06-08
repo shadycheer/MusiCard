@@ -1,0 +1,134 @@
+/* QQ Music card — forest-green gradient, white type, #31C27C accent.
+   Mirrors SpotifyCard's 320px geometry so the shelf and export sizes
+   are consistent across platforms. */
+
+.card {
+  width: calc(320px * var(--s, 1));
+  background: linear-gradient(160deg, #0f3a26 0%, #0a2419 100%);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: calc(20px * var(--s, 1));
+  gap: calc(16px * var(--s, 1));
+  overflow: hidden;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  box-shadow: 0 calc(20px * var(--s, 1)) calc(48px * var(--s, 1)) rgba(0, 0, 0, 0.5);
+}
+
+/* ─── Cover ────────────────────────────────────────────────────────── */
+
+.coverWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: calc(8px * var(--s, 1));
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 0 0 0 calc(1px * var(--s, 1)) rgba(255, 255, 255, 0.08),
+    0 calc(4px * var(--s, 1)) calc(12px * var(--s, 1)) rgba(0, 0, 0, 0.4);
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Song info ────────────────────────────────────────────────────── */
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--s, 1));
+}
+
+.title {
+  font-size: calc(22px * var(--s, 1));
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: calc(-0.3px * var(--s, 1));
+  color: #ffffff;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.artist {
+  font-size: calc(14px * var(--s, 1));
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+/* ─── Lyrics rail ──────────────────────────────────────────────────── */
+
+.lyrics {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6px * var(--s, 1));
+  padding: calc(14px * var(--s, 1)) calc(16px * var(--s, 1));
+  background: rgba(255, 255, 255, 0.04);
+  border-left: calc(3px * var(--s, 1)) solid #31C27C;
+  border-radius: calc(4px * var(--s, 1));
+}
+
+.lyricLine {
+  font-size: calc(13px * var(--s, 1));
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* ─── Foot: brand + QR ─────────────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(16px * var(--s, 1));
+  padding-top: calc(4px * var(--s, 1));
+}
+
+.brandLockup {
+  display: block;
+  height: calc(24px * var(--s, 1));
+  flex-shrink: 0;
+}
+
+.brandLockup svg {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+
+.qr {
+  width: calc(44px * var(--s, 1));
+  height: calc(44px * var(--s, 1));
+  flex-shrink: 0;
+  background: #ffffff;
+  border-radius: calc(4px * var(--s, 1));
+  padding: calc(3px * var(--s, 1));
+  box-sizing: border-box;
+}
+
+.qr svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

@@ -165,3 +165,41 @@ export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields>
     albumName: track.albumName || undefined,
   };
 }
+
+/** Fetch QQ Music track via the public fcg endpoint. The endpoint is
+ *  uncredentialled but requires a Referer header — QQ rejects calls
+ *  without it. Cover URL is templated off the album mid (T002R format
+ *  is the album-cover bucket). */
+const QQ_FCG = 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg';
+
+type QqSongResponse = {
+  code: number;
+  data?: Array<{
+    name: string;
+    singer: Array<{ name: string }>;
+    album: { mid: string; name: string };
+  }>;
+};
+
+export async function fetchQqMusicTrack(songMid: string): Promise<UpstreamFields> {
+  const url = `${QQ_FCG}?songmid=${songMid}&format=json&platform=yqq&inCharset=utf-8&outCharset=utf-8`;
+  const res = await fetch(url, { headers: { Referer: 'https://y.qq.com/' } });
+  if (!res.ok) throw new Error(`QQ Music returned ${res.status}`);
+  const data = (await res.json()) as QqSongResponse;
+  if (data.code !== 0 || !data.data?.[0]) throw new Error('track not found');
+  const song = data.data[0];
+
+  const coverUrl = song.album.mid
+    ? `https://y.qq.com/music/photo_new/T002R800x800M000${song.album.mid}.jpg`
+    : '';
+
+  return {
+    locale: null,
+    title: song.name,
+    artist: song.singer.map((s) => s.name).join(', '),
+    coverUrl,
+    sourceUrl: `https://y.qq.com/n/ryqq/songDetail/${songMid}`,
+    albumId: song.album.mid || undefined,
+    albumName: song.album.name || undefined,
+  };
+}
