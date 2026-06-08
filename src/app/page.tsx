@@ -116,7 +116,7 @@ export default function Page() {
      places the cache changes from this component's perspective. */
   const [recent, setRecent] = useState<Track[]>([]);
   useEffect(() => {
-    setRecent(getRecentTracks(9));
+    setRecent(getRecentTracks(12));
   }, []);
   const [qrSvg, setQrSvg] = useState<string>('');
   const [exporting, setExporting] = useState(false);
@@ -262,7 +262,7 @@ export default function Page() {
     /* Resolve already wrote the track into trackCache (see
        lib/songlink.ts). Re-snapshot the cache so the home shelf will
        show this track on next return-to-idle. */
-    setRecent(getRecentTracks(9));
+    setRecent(getRecentTracks(12));
     return () => {
       cancelled = true;
     };
@@ -385,7 +385,7 @@ export default function Page() {
 
   const handleRemoveRecent = useCallback((sourceUrl: string) => {
     removeCachedTrack(sourceUrl);
-    setRecent(getRecentTracks(9));
+    setRecent(getRecentTracks(12));
   }, []);
 
   const closeFallback = () => {
