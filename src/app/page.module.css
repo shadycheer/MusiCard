@@ -53,29 +53,26 @@
   align-items: center;
   gap: 24px;
   padding: 14px 28px;
-  /* Always-on light glass — even on the cold landing the bar reads as
-     a distinct surface, not a transparent overlay. Subtle blur picks
-     up the cover-backdrop / input behind it without dominating it.
-     .topBarScrolled bumps everything up once the user scrolls past
-     the hero zone so content sliding underneath gets properly masked. */
-  background: rgba(10, 10, 12, 0.32);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  /* Cold: fully transparent, no chrome. At the landing zone there's
+     nothing behind the header to blur — a visible glass surface would
+     just read as a dark stripe with no purpose. The .topBarScrolled
+     variant flips on once the user scrolls past the hero, by which
+     point the cover-backdrop / article text is sliding underneath
+     and a real frosted-glass treatment becomes worth showing. */
+  background: transparent;
   transition:
-    background 220ms ease,
-    backdrop-filter 220ms ease,
-    border-color 220ms ease;
+    background 240ms ease,
+    backdrop-filter 240ms ease;
 }
 
 .topBarScrolled {
-  /* Heavier glass — the cold transparent state was reading "see-through"
-     past the user's threshold of acceptable. Dense backdrop with strong
-     blur fully masks scrolling content behind it. */
-  background: rgba(10, 10, 12, 0.78);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border-bottom-color: rgba(255, 255, 255, 0.08);
+  /* True frosted glass — light tint so the BLUR is the dominant
+     visual, not a dark wash. No border or shadow on purpose: the
+     blur + tint create their own soft edge against scrolling content
+     underneath, and a hard line would break the glass illusion. */
+  background: rgba(20, 20, 26, 0.42);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
 }
 
 .topBar > .brand {
