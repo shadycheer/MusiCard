@@ -16,15 +16,7 @@ tsconfig.tsbuildinfo
 !.vscode/extensions.json
 .idea
 
-# Debug screenshots / snapshots from chrome-devtools MCP sessions
-.netease-*.png
-.netease-*.txt
-.v2-*.png
-.v2-*.txt
-.v3-*.png
-.v3-*.txt
-.v4-*.png
-.v4-*.txt
-.layout-*.png
-.layout-*.txt
-.home-snapshot.txt
+.vercel
+
+# Local-only planning / spec docs.
+docs/superpowers/
