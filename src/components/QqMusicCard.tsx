@@ -1,11 +1,6 @@
-import { forwardRef, useEffect, useState, type CSSProperties } from 'react';
+import { forwardRef } from 'react';
 import styles from './QqMusicCard.module.css';
 import { qqMusicLockup } from '../assets/icons';
-import {
-  extractCoverPalette,
-  darken,
-  type ExtractedPalette,
-} from '../lib/colorExtraction';
 
 type Props = {
   title: string;
@@ -15,48 +10,30 @@ type Props = {
   lyrics?: string[];
 };
 
-/* Cover-tinted backdrop — same trick as NeteaseCard. The QQ brand glyph
-   keeps its official yellow/green, but the surrounding card pulls a
-   moody gradient out of the album art so each song lands somewhere
-   between "all-white slab" and "one solid dark blob". */
-const FALLBACK_PALETTE: ExtractedPalette = {
-  primary: '#3a3a3a',
-  secondary: '#1a1a1a',
-};
-
+/* QQ Music share card — mirrors the brand's "CD disc peeking out from
+   behind the album cover" arrangement seen in their official player UI.
+   Fixed light-grass surface (not cover-tinted) keeps the layout calm so
+   the disc + sleeve metaphor reads cleanly. */
 const QqMusicCard = forwardRef<HTMLDivElement, Props>(
   ({ title, artist, coverUrl, qrSvg, lyrics }, ref) => {
     const hasLyrics = lyrics && lyrics.length > 0;
-    const [palette, setPalette] = useState<ExtractedPalette>(FALLBACK_PALETTE);
-
-    useEffect(() => {
-      if (!coverUrl) return;
-      let cancelled = false;
-      extractCoverPalette(coverUrl).then((p) => {
-        if (!cancelled) setPalette(p);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [coverUrl]);
-
-    /* darken(0.30/0.55) lands the gradient in editorial territory —
-       saturated enough to read the cover's mood, dark enough that
-       white type sits comfortably on top. */
-    const cardStyle: CSSProperties = {
-      ['--qq-primary' as string]: darken(palette.primary, 0.30),
-      ['--qq-secondary' as string]: darken(palette.secondary, 0.55),
-    };
-
     return (
-      <div ref={ref} className={styles.card} style={cardStyle}>
-        <div className={styles.coverWrap}>
-          <img
-            src={coverUrl}
-            alt=""
-            className={styles.cover}
-            crossOrigin="anonymous"
-          />
+      <div ref={ref} className={styles.card}>
+        <div className={styles.coverStage}>
+          {/* The disc sits behind the cover and pokes out on the right —
+              the visual move QQ uses on its album views. Pure CSS gradient
+              fakes the polished plastic + concentric grooves. */}
+          <div className={styles.disc} aria-hidden>
+            <div className={styles.discHub} />
+          </div>
+          <div className={styles.coverWrap}>
+            <img
+              src={coverUrl}
+              alt=""
+              className={styles.cover}
+              crossOrigin="anonymous"
+            />
+          </div>
         </div>
 
         <div className={styles.info}>
