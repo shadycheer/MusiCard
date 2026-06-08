@@ -1,600 +1,73 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import ShareCard from '@/components/ShareCard';
-import CardSkeleton from '@/components/CardSkeleton';
-import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
-import SongDNAPanel, {
-  type SongDNAState,
-  formatCacheTime,
-} from '@/components/SongDNAPanel';
-import SongDnaDoneBadge from '@/components/SongDnaDoneBadge';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import HistoryShelf from '@/components/HistoryShelf';
-import { useTrackInfo } from '@/hooks/useTrackInfo';
+import { parseMusicUrl } from '@/lib/musicUrl';
+import { buildSlug, trackToSlug } from '@/lib/slug';
 import { getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
 import type { Track } from '@/lib/songlink';
-import { generateQrSvg } from '@/lib/qr';
-import { renderCardCanvas } from '@/lib/renderCardCanvas';
-import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lrclib';
-import { streamSongDna } from '@/lib/songDnaClient';
-import { proxyCoverUrl } from '@/lib/coverProxy';
-import type { Platform } from '@/lib/musicUrl';
 import styles from './page.module.css';
 
-function recordEvent(type: 'view' | 'export'): void {
-  fetch('/api/track-view', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type }),
-    keepalive: true,
-  }).catch(() => {});
-}
-
-const MAX_SELECTED_LYRICS = 4;
-
-function sanitizeFilename(title: string, platform: Platform): string {
-  const cleaned = title
-    .replace(/[^\w一-鿿-]+/g, '_')
-    .slice(0, 40)
-    .replace(/^_+|_+$/g, '');
-  const prefix =
-    platform === 'spotify'
-      ? 'spotify-card'
-      : platform === 'netease'
-        ? 'netease-card'
-        : 'apple-music-card';
-  return `${prefix}-${cleaned || 'track'}.png`;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob returned null'))),
-      'image/png',
-    );
-  });
-}
-
-function triggerDownload(url: string, filename: string): void {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-function isDesktopPlatform(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const platform = navigator.platform ?? '';
-  const ua = navigator.userAgent;
-  return /Mac|Win|Linux|CrOS/i.test(platform) || /Macintosh|Windows|X11|Linux/i.test(ua);
-}
-
-function shouldUseMobileShare(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  if (isDesktopPlatform()) return false;
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-}
-
-type ShareResult = 'ok' | 'cancelled' | 'unsupported';
-
-async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> {
-  if (typeof navigator === 'undefined') return 'unsupported';
-  if (typeof navigator.share !== 'function') return 'unsupported';
-
-  const file = new File([blob], filename, { type: 'image/png' });
-  if (
-    typeof navigator.canShare !== 'function' ||
-    !navigator.canShare({ files: [file] })
-  ) {
-    return 'unsupported';
-  }
-
-  try {
-    await navigator.share({ files: [file] });
-    return 'ok';
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
-    return 'unsupported';
-  }
-}
-
+/* Home: input + recent-tracks shelf. Pasting a valid link doesn't
+   transition any state here — it navigates to /[slug]. That route
+   owns the actual fetch + display, so the back button works
+   naturally and each song has a shareable URL. */
 export default function Page() {
+  const router = useRouter();
   const [input, setInput] = useState('');
-  const { state, refetch } = useTrackInfo(input);
-  /* `recent` is derived from trackCache (single source of truth — the
-     resolve-time cache IS the visit log). We snapshot into local state
-     for cheap re-renders; refresh after successful fetches and after
-     remove-clicks. No event bus needed since these are the only two
-     places the cache changes from this component's perspective. */
+  const [inputError, setInputError] = useState<string | null>(null);
+
   const [recent, setRecent] = useState<Track[]>([]);
   useEffect(() => {
     setRecent(getRecentTracks(12));
   }, []);
-  const [qrSvg, setQrSvg] = useState<string>('');
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [fallbackImageUrl, setFallbackImageUrl] = useState<string | null>(null);
-  const [useMobileShare, setUseMobileShare] = useState(false);
-  const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
-  const [songDnaState, setSongDnaState] = useState<SongDNAState>({ kind: 'idle' });
-  /* Done-badge migration is a 4-stage state machine:
-       none           — no badge anywhere
-       helix-large    — large SVG at helix center, particles cross-faded out
-       migrating      — fixed-positioned badge running shrink + translate
-                        animation toward the header slot
-       header-docked  — small SVG docked in panel header (final)
-     Triggered on FIRST CONTENT (not on 'found') so the badge migrates
-     in parallel with the article streaming in below. */
-  type BadgeStage = 'none' | 'helix-large' | 'migrating' | 'header-docked';
-  const [badgeStage, setBadgeStage] = useState<BadgeStage>('none');
-  const [migrationCoords, setMigrationCoords] = useState<
-    | { from: { x: number; y: number }; to: { x: number; y: number } }
-    | null
-  >(null);
-  const helixAnchorRef = useRef<HTMLDivElement>(null);
-  const headerBadgeRef = useRef<HTMLSpanElement>(null);
 
+  /* Validate + navigate on input change. Debounced so a paste-and-edit
+     sequence doesn't fire mid-edit. */
   useEffect(() => {
-    setUseMobileShare(shouldUseMobileShare());
-  }, []);
-
-  /* Track scroll position so the topBar can fade in its dark backdrop
-     + track label only after the user has scrolled past the input area.
-     Threshold of 180 corresponds roughly to "input is no longer the
-     visual anchor", giving the cold landing a clean transparent header. */
-  const [pageScrolled, setPageScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setPageScrolled(window.scrollY > 180);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  /* Trigger predicate — the badge migration starts the moment SONG-DNA
-     content first becomes visible, whether that's a 'final' event
-     (cached payload) or the first streamed chunk landing during a
-     fresh fetch. Letting the migration run in parallel with the
-     streaming article means the user isn't held by a "loading 99%"
-     state when the result is already readable. */
-  const hasSongDnaContent = useMemo(() => {
-    if (songDnaState.kind === 'found') return true;
-    if (
-      songDnaState.kind === 'loading' &&
-      (songDnaState.streamedContent ?? '').length > 0
-    )
-      return true;
-    return false;
-  }, [songDnaState]);
-
-  /* Skip the whole celebratory animation for cache hits — there's
-     nothing to "wait for" (content is already there), and the fake
-     particle-spin → fly-to-header sequence reads as gratuitous when
-     the actual perceived latency was zero. Detected before the
-     migration scheduler runs so we never enqueue the timers. */
-  const isSongDnaCachedHit =
-    songDnaState.kind === 'found' && songDnaState.cached === true;
-
-  /* Badge migration sequence (FRESH results only — cache hits short-
-     circuit to header-docked above):
-       t=0    hasContent flips true. Panel switches helix phase to
-              'checkmark' — particles morph + tint green (~450ms).
-       t=450  setBadgeStage('helix-large'). Large SVG fades in at
-              helix center; panel cross-fades its WebGL layer to 0.
-       t=650  Measure helix-center + header-slot rects. Then
-              setBadgeStage('migrating'). MigratingBadge mounts at
-              the measured start point, runs a single 700ms keyframe
-              that simultaneously shrinks 48→18px AND translates to
-              the header slot. Helix stays open (180px) underneath
-              so the article doesn't shift mid-flight.
-       t=1350 onAnimationEnd → setBadgeStage('header-docked'). Small
-              refresh-button appears in the header slot at exactly the
-              position where the migrating badge ended. Helix collapses
-              to 0, article slides up cleanly into the freed space. */
-  useEffect(() => {
-    if (!hasSongDnaContent) {
-      setBadgeStage('none');
-      setMigrationCoords(null);
+    if (!input.trim()) {
+      setInputError(null);
       return;
     }
-    if (isSongDnaCachedHit) {
-      // Cache hit — collapse helix and dock the badge immediately,
-      // no celebratory animation.
-      setBadgeStage('header-docked');
-      setMigrationCoords(null);
-      return;
-    }
-    const tHelix = window.setTimeout(() => setBadgeStage('helix-large'), 450);
-    const tMigrate = window.setTimeout(() => {
-      if (helixAnchorRef.current && headerBadgeRef.current) {
-        const h = helixAnchorRef.current.getBoundingClientRect();
-        const hd = headerBadgeRef.current.getBoundingClientRect();
-        setMigrationCoords({
-          from: { x: h.left + h.width / 2, y: h.top + h.height / 2 },
-          to: { x: hd.left + hd.width / 2, y: hd.top + hd.height / 2 },
-        });
+    const t = window.setTimeout(() => {
+      const parsed = parseMusicUrl(input);
+      if (parsed.kind === 'invalid') {
+        setInputError('请粘贴 Spotify / Apple Music / 网易云 单曲链接');
+        return;
       }
-      setBadgeStage('migrating');
-    }, 650);
-    return () => {
-      window.clearTimeout(tHelix);
-      window.clearTimeout(tMigrate);
-    };
-  }, [hasSongDnaContent, isSongDnaCachedHit]);
+      if (parsed.kind === 'non-track') {
+        setInputError('目前只支持单曲链接');
+        return;
+      }
+      setInputError(null);
+      const slug = buildSlug(parsed.platform, parsed.externalId, parsed.country);
+      router.push(`/${slug}`);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [input, router]);
 
-  const lyricLines = useMemo(
-    () =>
-      lyricsState.kind === 'found' && lyricsState.lines.length > 0
-        ? lyricsState.lines
-        : [],
-    [lyricsState],
+  const handlePickRecent = useCallback(
+    (track: Track) => {
+      const slug = trackToSlug(track);
+      if (slug) router.push(`/${slug}`);
+    },
+    [router],
   );
-
-  // Selected lyrics — always rendered in the song's original line order
-  // (sorted by index), regardless of the order the user clicked them in.
-  const selectedLyricLines = useMemo(
-    () =>
-      [...selectedIndices]
-        .sort((a, b) => a - b)
-        .map((i) => lyricLines[i])
-        .filter((s): s is string => typeof s === 'string'),
-    [selectedIndices, lyricLines],
-  );
-
-  useEffect(() => {
-    if (state.kind !== 'success') {
-      setQrSvg('');
-      return;
-    }
-    let cancelled = false;
-    generateQrSvg(state.track.sourceUrl).then((svg) => {
-      if (!cancelled) setQrSvg(svg);
-    });
-    recordEvent('view');
-    /* Resolve already wrote the track into trackCache (see
-       lib/songlink.ts). Re-snapshot the cache so the home shelf will
-       show this track on next return-to-idle. */
-    setRecent(getRecentTracks(12));
-    return () => {
-      cancelled = true;
-    };
-  }, [state]);
-
-  useEffect(() => {
-    // Track change → abort any in-flight song-dna stream to free the
-    // route handler and avoid late state updates landing on the new song.
-    songDnaAbortRef.current?.abort();
-
-    if (state.kind !== 'success') {
-      setLyricsState({ kind: 'idle' });
-      setSelectedIndices([]);
-      setSongDnaState({ kind: 'idle' });
-      return;
-    }
-    setSelectedIndices([]);
-    setSongDnaState({ kind: 'idle' });
-    setLyricsState({ kind: 'loading' });
-
-    const ctrl = new AbortController();
-    const { title, artist, platform, sourceUrl } = state.track;
-    // NetEase: extract the track id from the canonical URL so the server
-    // can hit NetEase's native /song/lyric endpoint first (LRCLIB has
-    // sparse Chinese coverage; NetEase is authoritative for its catalog).
-    const neteaseId =
-      platform === 'netease'
-        ? sourceUrl.match(/[?&]id=(\d+)/)?.[1]
-        : undefined;
-
-    /* Race orchestration — fire LRCLIB and AI in parallel rather than
-       serializing AI after LRCLIB's (potentially 8s) timeout.
-         - Both requests get their own AbortController so we can kill
-           the loser independently of the overall effect cleanup.
-         - LRCLIB is authoritative when it hits, so we always WAIT for
-           LRCLIB first and only fall back to AI on lrclib-miss /
-           network error. AI was kicked off at t=0 in parallel, so by
-           the time we need its result it's already several seconds
-           into work — no added latency on the miss path.
-         - On LRCLIB hit, we abort AI immediately to free up upstream
-           tokens (OpenRouter charges per produced token, so an aborted
-           in-flight call costs ~hundreds of tokens, not the full call). */
-    const lrclibCtrl = new AbortController();
-    const aiCtrl = new AbortController();
-    ctrl.signal.addEventListener('abort', () => {
-      lrclibCtrl.abort();
-      aiCtrl.abort();
-    });
-
-    const lrclibP = fetchLyricsLrclib(title, artist, lrclibCtrl.signal, neteaseId)
-      .catch((err) => {
-        if (lrclibCtrl.signal.aborted) return null;
-        if (err instanceof DOMException && err.name === 'AbortError') return null;
-        return null;
-      });
-    const aiP = fetchLyricsAi(title, artist, aiCtrl.signal).catch((err) => {
-      if (aiCtrl.signal.aborted) return null;
-      if (err instanceof DOMException && err.name === 'AbortError') return null;
-      return null;
-    });
-
-    (async () => {
-      const first = await lrclibP;
-      if (ctrl.signal.aborted) return;
-
-      // LRCLIB authoritative hits (lrclib / netease / cached-ai).
-      if (first) {
-        if (
-          (first.source === 'netease' || first.source === 'lrclib') &&
-          first.lines &&
-          first.lines.length > 0
-        ) {
-          aiCtrl.abort();
-          setLyricsState({ kind: 'found', lines: first.lines, source: 'lrclib' });
-          return;
-        }
-        if (first.source === 'ai' && first.lines && first.lines.length > 0) {
-          aiCtrl.abort();
-          setLyricsState({ kind: 'found', lines: first.lines, source: 'ai' });
-          return;
-        }
-        if (first.source === 'ai-miss') {
-          // Cached AI verdict says no lyrics exist — no point waiting for AI.
-          aiCtrl.abort();
-          setLyricsState({ kind: 'not-found' });
-          return;
-        }
-      }
-
-      // LRCLIB missed (lrclib-miss / network error). AI has been running
-      // in parallel; just await its result.
-      setLyricsState({ kind: 'ai-searching' });
-      const second = await aiP;
-      if (ctrl.signal.aborted) return;
-      if (second && second.lines && second.lines.length > 0) {
-        setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
-      } else {
-        setLyricsState({ kind: 'not-found' });
-      }
-    })();
-
-    return () => ctrl.abort();
-  }, [state]);
-
-  useEffect(() => {
-    return () => {
-      if (fallbackImageUrl) URL.revokeObjectURL(fallbackImageUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const toggleLyric = (idx: number) => {
-    setSelectedIndices((prev) => {
-      const at = prev.indexOf(idx);
-      if (at >= 0) return prev.filter((i) => i !== idx);
-      if (prev.length >= MAX_SELECTED_LYRICS) return [...prev.slice(1), idx];
-      return [...prev, idx];
-    });
-  };
 
   const handleRemoveRecent = useCallback((sourceUrl: string) => {
     removeCachedTrack(sourceUrl);
     setRecent(getRecentTracks(12));
   }, []);
 
-  const closeFallback = () => {
-    setFallbackImageUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
-    });
-  };
-
-  const songDnaAbortRef = useRef<AbortController | null>(null);
-
-  const requestSongDna = useCallback(
-    async (refresh = false) => {
-      if (state.kind !== 'success') return;
-
-      songDnaAbortRef.current?.abort();
-      const ctrl = new AbortController();
-      songDnaAbortRef.current = ctrl;
-
-      setSongDnaState({
-        kind: 'loading',
-        phase: refresh ? 'refreshing' : 'reading',
-        currentAction: refresh ? '正在重新检索…' : '正在读取这首歌的资料…',
-        streamedContent: '',
-      });
-
-      const params = new URLSearchParams({
-        title: state.track.title,
-        artist: state.track.artist,
-        platform: state.track.platform,
-        sourceUrl: state.track.sourceUrl,
-        ...(refresh ? { refresh: 'true' } : {}),
-      });
-
-      try {
-        let receivedTerminal = false;
-        await streamSongDna(
-          `/api/song-dna?${params.toString()}`,
-          (event) => {
-            if (event.kind === 'status') {
-              setSongDnaState((s) =>
-                s.kind === 'loading'
-                  ? {
-                      kind: 'loading',
-                      phase: event.phase,
-                      currentAction: phaseToText(event.phase, event.detail),
-                      streamedContent: s.streamedContent ?? '',
-                    }
-                  : s,
-              );
-            } else if (event.kind === 'chunk') {
-              setSongDnaState((s) =>
-                s.kind === 'loading'
-                  ? {
-                      ...s,
-                      streamedContent: (s.streamedContent ?? '') + event.text,
-                    }
-                  : s,
-              );
-            } else if (event.kind === 'final') {
-              receivedTerminal = true;
-              if (event.payload.hasData) {
-                setSongDnaState({
-                  kind: 'found',
-                  payload: event.payload,
-                  cached: event.cached,
-                  cachedAt: event.cachedAt,
-                });
-              } else {
-                setSongDnaState({ kind: 'empty' });
-              }
-            } else if (event.kind === 'error') {
-              receivedTerminal = true;
-              setSongDnaState({ kind: 'error', message: event.message });
-            }
-          },
-          ctrl.signal,
-        );
-        if (!receivedTerminal && !ctrl.signal.aborted) {
-          setSongDnaState({
-            kind: 'error',
-            message: '查询超时或流意外终止',
-          });
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setSongDnaState({
-          kind: 'error',
-          message: err instanceof Error ? err.message : '请求失败',
-        });
-      }
-    },
-    [state],
-  );
-
-  function phaseToText(
-    phase:
-      | 'started'
-      | 'searching'
-      | 'analyzing'
-      | 'synthesizing'
-      | 'reading'
-      | 'refreshing',
-    detail?: string,
-  ): string {
-    switch (phase) {
-      case 'started':
-        return '正在准备检索…';
-      case 'searching':
-        return detail ? `正在搜索：${detail}` : 'AI 正在联网检索…';
-      case 'analyzing':
-        return detail ?? '正在阅读搜索结果…';
-      case 'synthesizing':
-        return '正在整合资料并撰写…';
-      case 'reading':
-        return '正在读取这首歌的资料…';
-      case 'refreshing':
-        return '正在重新检索…';
-      default:
-        return detail ?? '正在处理资料…';
-    }
-  }
-
-  const handleExport = async () => {
-    if (state.kind !== 'success' || !qrSvg) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const canvas = await renderCardCanvas({
-        title: state.track.title,
-        artist: state.track.artist,
-        coverUrl: proxyCoverUrl(state.track.coverUrl),
-        qrSvg,
-        platform: state.track.platform,
-        lyrics: selectedLyricLines,
-        targetWidth: 1920,
-      });
-
-      const blob = await canvasToBlob(canvas);
-      const filename = sanitizeFilename(state.track.title, state.track.platform);
-
-      const mobileShare = shouldUseMobileShare();
-      setUseMobileShare(mobileShare);
-
-      if (mobileShare) {
-        const result = await tryShareFile(blob, filename);
-        if (result === 'unsupported') {
-          const url = URL.createObjectURL(blob);
-          setFallbackImageUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return url;
-          });
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        triggerDownload(url, filename);
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      }
-
-      recordEvent('export');
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : '导出失败');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const stage: 'idle' | 'loading' | 'error' | 'success' =
-    state.kind === 'idle' || state.kind === 'invalid'
-      ? 'idle'
-      : state.kind === 'loading'
-        ? 'loading'
-        : state.kind === 'error'
-          ? 'error'
-          : 'success';
-
   return (
     <div className={styles.page}>
-      {state.kind === 'success' && (
-        <div
-          className={styles.coverBackdrop}
-          aria-hidden
-          style={{
-            backgroundImage: `url("${proxyCoverUrl(state.track.coverUrl)}")`,
-          }}
-        />
-      )}
-
-      <header
-        className={`${styles.topBar} ${pageScrolled ? styles.topBarScrolled : ''}`}
-      >
+      <header className={`${styles.topBar}`}>
         <a href="/" className={styles.brand}>
           <span className={styles.brandMark} aria-hidden />
           <span className={styles.brandText}>MusiCard</span>
         </a>
-        {/* Center slot — track title only, fades in once user scrolls
-            past the input area. Always mounted (when a track exists)
-            so the grid keeps a stable center column and there's no
-            layout shift on scroll-trigger. */}
-        <div
-          className={`${styles.topBarTrack} ${
-            state.kind === 'success' && pageScrolled
-              ? styles.topBarTrackVisible
-              : ''
-          }`}
-          aria-live="polite"
-        >
-          {state.kind === 'success' ? state.track.title : ''}
-        </div>
+        <div className={styles.topBarTrack} aria-hidden />
         <a
           className={styles.iconLink}
           href="https://github.com/shadycheer/MusiCard"
@@ -611,8 +84,8 @@ export default function Page() {
 
       <main
         className={styles.main}
-        data-stage={stage}
-        data-has-history={stage === 'idle' && recent.length > 0 ? 'true' : 'false'}
+        data-stage="idle"
+        data-has-history={recent.length > 0 ? 'true' : 'false'}
       >
         <div className={styles.inputBlock}>
           <label className={styles.inputLabel} htmlFor="track-input">
@@ -626,226 +99,17 @@ export default function Page() {
             onChange={(e) => setInput(e.target.value)}
             autoFocus
           />
-          {state.kind === 'invalid' && (
-            <p className={styles.inputError}>{state.message}</p>
-          )}
+          {inputError && <p className={styles.inputError}>{inputError}</p>}
         </div>
 
-        {stage === 'idle' && recent.length > 0 && (
+        {recent.length > 0 && (
           <HistoryShelf
             tracks={recent}
-            onPick={(url) => setInput(url)}
+            onPick={handlePickRecent}
             onRemove={handleRemoveRecent}
           />
         )}
-
-        {stage === 'loading' && state.kind === 'loading' && (
-          <section
-            className={styles.centeredCard}
-            aria-label="加载中"
-            key="stage-loading"
-          >
-            <CardSkeleton platform={state.platform} />
-            <p className={styles.centeredHint}>正在读取链接…</p>
-          </section>
-        )}
-
-        {stage === 'error' && state.kind === 'error' && (
-          <section
-            className={styles.centeredCard}
-            aria-label="读取失败"
-            key="stage-error"
-          >
-            <div className={styles.errorPreview}>读取失败</div>
-            <p className={styles.centeredHint}>{state.message}</p>
-            <button
-              className={styles.secondary}
-              onClick={refetch}
-              type="button"
-            >
-              重试
-            </button>
-          </section>
-        )}
-
-        {state.kind === 'success' && qrSvg && (
-          <div className={styles.workArea} key="stage-success">
-            <section className={styles.previewPane} aria-label="卡片预览">
-              <div className={styles.cardFrame}>
-                <ShareCard
-                  title={state.track.title}
-                  artist={state.track.artist}
-                  coverUrl={proxyCoverUrl(state.track.coverUrl)}
-                  qrSvg={qrSvg}
-                  platform={state.track.platform}
-                  lyrics={selectedLyricLines}
-                />
-              </div>
-              <div className={styles.previewActions}>
-                <button
-                  className={styles.primary}
-                  disabled={!qrSvg || exporting}
-                  onClick={handleExport}
-                  type="button"
-                >
-                  <svg
-                    viewBox="0 0 16 16"
-                    width="14"
-                    height="14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                  >
-                    <path d="M8 2v9m0 0-3-3m3 3 3-3M3 14h10" />
-                  </svg>
-                  <span>
-                    {exporting ? '导出中…' : useMobileShare ? '保存到相册' : '下载图片'}
-                  </span>
-                </button>
-                {exportError && <p className={styles.errorText}>{exportError}</p>}
-              </div>
-            </section>
-
-            <aside className={styles.panelsCol}>
-              <section className={styles.panel}>
-                <header className={styles.panelHead}>
-                  <h2 className={styles.panelTitle}>歌词</h2>
-                  <span className={styles.panelMeta}>
-                    {selectedIndices.length}/{MAX_SELECTED_LYRICS}
-                  </span>
-                </header>
-                <div className={styles.panelBody}>
-                  <LyricsPicker
-                    state={lyricsState}
-                    lines={lyricLines}
-                    selected={selectedIndices}
-                    onToggle={toggleLyric}
-                    maxSelected={MAX_SELECTED_LYRICS}
-                  />
-                </div>
-              </section>
-
-              <section className={styles.panel}>
-                <header className={styles.panelHead}>
-                  <h2 className={styles.panelTitle}>Song DNA</h2>
-                  {/* Right slot: while migrating, an empty 20×20 box
-                      that the flying badge targets. Once docked, the
-                      slot mounts a reload button (the persistent
-                      affordance), with a cache timestamp to its left.
-                      Guards live on badgeStage only — not on
-                      songDnaState.kind — because the migration
-                      finishes within ~1s while streaming continues
-                      for many seconds. Gating the button on kind
-                      ==='found' would leave the slot empty during
-                      that gap. */}
-                  <div className={styles.headerActions}>
-                    {badgeStage === 'header-docked' &&
-                      songDnaState.kind === 'found' &&
-                      songDnaState.cachedAt && (
-                        <span className={styles.headerStamp}>
-                          {formatCacheTime(songDnaState.cachedAt)}
-                        </span>
-                      )}
-                    <span
-                      ref={headerBadgeRef}
-                      className={styles.headerBadgeSlot}
-                      aria-hidden={badgeStage !== 'header-docked'}
-                    >
-                      {badgeStage === 'header-docked' && (
-                        <button
-                          type="button"
-                          className={styles.headerRefresh}
-                          onClick={() => requestSongDna(true)}
-                          disabled={songDnaState.kind === 'loading'}
-                          aria-label="重新检索"
-                          title="重新检索"
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            width="11"
-                            height="11"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.7"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
-                            <path d="M13.5 2.5v3h-3" />
-                          </svg>
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                </header>
-                <div className={styles.panelBody}>
-                  <SongDNAPanel
-                    state={songDnaState}
-                    onRequest={requestSongDna}
-                    badgeStage={badgeStage}
-                    helixAnchorRef={helixAnchorRef}
-                  />
-                </div>
-              </section>
-            </aside>
-          </div>
-        )}
       </main>
-
-      {/* MigratingBadge — fixed-positioned floater that runs the CSS
-          keyframe shrink+translate. Rendered as a sibling of <main> so
-          it escapes any panel clipping and sits above the cover
-          backdrop. Coords are absolute viewport (set via inline CSS
-          vars), so the helix collapsing under it doesn't drag it. */}
-      {badgeStage === 'migrating' && migrationCoords && (
-        <div
-          className={styles.migratingBadge}
-          style={{
-            // @ts-expect-error CSS vars on inline style
-            '--sx': `${migrationCoords.from.x}px`,
-            '--sy': `${migrationCoords.from.y}px`,
-            '--ex': `${migrationCoords.to.x}px`,
-            '--ey': `${migrationCoords.to.y}px`,
-          }}
-          onAnimationEnd={() => setBadgeStage('header-docked')}
-          aria-hidden
-        >
-          <SongDnaDoneBadge size="large" />
-        </div>
-      )}
-
-      {fallbackImageUrl && (
-        <div
-          className={styles.modalBackdrop}
-          onClick={closeFallback}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className={styles.modalContent}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className={styles.modalClose}
-              onClick={closeFallback}
-              aria-label="关闭"
-            >
-              ✕
-            </button>
-            <p className={styles.modalHint}>长按图片保存到相册</p>
-            <img
-              className={styles.modalImage}
-              src={fallbackImageUrl}
-              alt="生成的分享卡"
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

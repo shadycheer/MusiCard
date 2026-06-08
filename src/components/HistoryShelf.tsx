@@ -6,18 +6,18 @@ import styles from './HistoryShelf.module.css';
 
 type Props = {
   tracks: Track[];
-  onPick: (sourceUrl: string) => void;
+  /** Passes the whole Track up so the parent can build the per-platform
+   *  slug without re-parsing the URL. */
+  onPick: (track: Track) => void;
   onRemove: (sourceUrl: string) => void;
 };
 
-/* Visible columns per visual row. Each row gets its own shelf rail at
-   the bottom, so rails appear only under actual rows of content. */
 const COLS = 4;
 
-/* Multi-row record vitrine. Sourced from trackCache (single storage —
+/* Multi-row recent grid. Sourced from trackCache (single storage —
    see lib/trackCache.getRecentTracks). Renders only as many rows as
-   the user actually has tracks for, so 3 entries occupies 1 row, not
-   an awkward grid full of blanks. */
+   there are tracks for, so 3 entries occupies 1 row, not an awkward
+   grid full of blanks. */
 export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
   if (tracks.length === 0) return null;
   const rows: Track[][] = [];
@@ -37,7 +37,7 @@ export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
               <button
                 type="button"
                 className={styles.shelfItem}
-                onClick={() => onPick(track.sourceUrl)}
+                onClick={() => onPick(track)}
                 title={`${track.title} — ${track.artist}`}
               >
                 <img

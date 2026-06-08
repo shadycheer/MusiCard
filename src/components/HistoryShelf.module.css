@@ -1,39 +1,20 @@
-/* HistoryShelf — multi-row vinyl vitrine.
+/* HistoryShelf — clean multi-row recent grid.
 
-   Reference: a glass-fronted wooden record cabinet — warm walnut
-   carcass, brass-toned shelf rails, soft ambient interior light at
-   the top suggesting an inset bulb. Translates to dark UI as:
-     - frame: walnut gradient + inset shadows for "inside the cabinet"
-     - shelf rails: warm rails (not white hairlines) between each row
-     - meta type: warm cream + brass, not the cold gray of the rest of
-       the page (intentional — the shelf reads as a distinct "object"
-       on the landing, not just another panel)
-   Multi-row by design so the user feels they have a collection, not
-   just a sad single-cover strip. */
+   Earlier passes tried a heavy walnut/brass "vitrine" frame; it read
+   as a brown box rather than an elegant showcase, so the chrome is
+   gone now. The covers ARE the content — surrounding them with
+   minimal type and shelf-board hairlines is enough.
+
+   IMPORTANT: grid-template-columns uses minmax(0, 1fr), not 1fr.
+   With plain 1fr, a grid cell's min-width defaults to its content's
+   intrinsic size — so a 600×400 cover image will blow the column
+   wider than its 4 siblings. minmax(0, 1fr) caps that. */
 
 .shelf {
   width: 100%;
-  max-width: 580px;
-  margin-top: 32px;
-  padding: 22px 26px 18px;
-  background:
-    /* Top ambient light pool — sells "inside a lit display case". */
-    radial-gradient(
-      ellipse at 50% -10%,
-      rgba(255, 198, 132, 0.10) 0%,
-      transparent 55%
-    ),
-    /* Walnut body. */
-    linear-gradient(180deg, #2a1d14 0%, #1c1109 100%);
-  border: 1px solid rgba(98, 62, 36, 0.55);
-  border-radius: 14px;
-  box-shadow:
-    /* Inner top highlight = polished interior edge */
-    inset 0 1px 0 rgba(255, 220, 180, 0.06),
-    /* Inner bottom shadow = depth inside the case */
-    inset 0 -18px 36px rgba(0, 0, 0, 0.55),
-    /* External drop = the cabinet sitting on the page */
-    0 20px 40px -22px rgba(0, 0, 0, 0.75);
+  max-width: 640px;
+  margin: 36px auto 0;
+  padding: 0 4px;
   animation: shelfFadeIn 520ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
 
@@ -52,13 +33,13 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: 16px;
-  padding: 0 2px 12px;
-  border-bottom: 1px solid rgba(212, 165, 116, 0.12);
+  margin-bottom: 18px;
+  padding: 0 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .shelfLabel {
-  color: rgba(212, 165, 116, 0.92);
+  color: var(--text-mute);
   font-family: var(--font-ui-stack);
   font-size: 10px;
   font-weight: 700;
@@ -67,49 +48,33 @@
 }
 
 .shelfCount {
-  color: rgba(190, 155, 110, 0.55);
+  color: var(--text-mute);
   font-family: var(--font-mono-stack);
   font-size: 10px;
   letter-spacing: 0.04em;
+  opacity: 0.55;
 }
 
-/* One DOM row per visual row. Each row carries its own shelf rail at
-   the bottom (brass-toned hairline + soft cast shadow), so rails only
-   appear under actual rows — empty cells never get rails. */
+/* One row per up-to-4 entries. The row carries a soft hairline at
+   its bottom — neutral white, not warm — so it reads as a clean
+   shelf rule rather than wood paneling. */
 .shelfRow {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px 14px;
-  padding-bottom: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 16px;
+  padding: 4px 4px 16px;
   margin-bottom: 16px;
-  position: relative;
-}
-
-.shelfRow::after {
-  content: '';
-  position: absolute;
-  left: -4px;
-  right: -4px;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent 0,
-    rgba(212, 165, 116, 0.22) 10%,
-    rgba(212, 165, 116, 0.34) 50%,
-    rgba(212, 165, 116, 0.22) 90%,
-    transparent 100%
-  );
-  box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .shelfRow:last-child {
   margin-bottom: 0;
+  border-bottom: none;
 }
 
 .shelfCell {
   position: relative;
+  min-width: 0;
 }
 
 .shelfItem {
@@ -121,34 +86,38 @@
   border: none;
   cursor: pointer;
   text-align: left;
+  min-width: 0;
   transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .shelfItem:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
 }
 
 .shelfCover {
   width: 100%;
+  /* IMPORTANT: aspect-ratio + display:block + object-fit:cover is the
+     trio that keeps every cell square regardless of source aspect.
+     Without object-fit, non-square covers stretch; without
+     aspect-ratio, the cell tracks the image's natural ratio. */
   aspect-ratio: 1 / 1;
+  height: auto;
   object-fit: cover;
   display: block;
-  border-radius: 4px;
-  /* Warm-tinted highlight on the spine; ambient shadow that picks up
-     a faint amber from the case below to keep the record visually
-     "inside" the cabinet rather than floating above it. */
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
   box-shadow:
-    inset 1px 0 0 rgba(255, 235, 200, 0.10),
-    0 8px 16px rgba(0, 0, 0, 0.6),
-    0 2px 4px rgba(40, 25, 12, 0.8);
+    inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 6px 14px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.6);
   transition: box-shadow 0.22s ease;
 }
 
 .shelfItem:hover .shelfCover {
   box-shadow:
-    inset 1px 0 0 rgba(255, 235, 200, 0.20),
-    0 14px 26px rgba(0, 0, 0, 0.7),
-    0 3px 5px rgba(60, 40, 20, 0.85);
+    inset 1px 0 0 rgba(255, 255, 255, 0.14),
+    0 12px 22px rgba(0, 0, 0, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.7);
 }
 
 .shelfMeta {
@@ -160,7 +129,7 @@
 }
 
 .shelfTitle {
-  color: rgba(245, 225, 195, 0.95);
+  color: var(--text);
   font-family: var(--font-ui-stack);
   font-size: 11px;
   font-weight: 600;
@@ -171,13 +140,14 @@
 }
 
 .shelfArtist {
-  color: rgba(195, 170, 135, 0.6);
+  color: var(--text-mute);
   font-family: var(--font-ui-stack);
   font-size: 10px;
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.7;
 }
 
 .shelfRemove {
@@ -190,9 +160,9 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  color: rgba(245, 225, 195, 0.95);
-  background: rgba(20, 12, 6, 0.92);
-  border: 1px solid rgba(212, 165, 116, 0.35);
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 50%;
   font-size: 13px;
   line-height: 1;
@@ -213,16 +183,16 @@
 }
 
 .shelfRemove:hover {
-  background: rgba(40, 22, 10, 1);
-  border-color: rgba(212, 165, 116, 0.65);
+  background: rgba(0, 0, 0, 0.95);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 540px) {
   .shelf {
-    padding: 18px 18px 14px;
+    max-width: 100%;
   }
   .shelfRow {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 12px;
   }
 }
