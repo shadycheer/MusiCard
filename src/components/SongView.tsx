@@ -16,87 +16,16 @@ import SongDnaPanel, {
 } from '@/components/song-dna/SongDnaPanel';
 import SongDnaDoneBadge from '@/components/song-dna/SongDnaDoneBadge';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
+import { useCardExport } from '@/hooks/useCardExport';
 import { generateQrSvg } from '@/lib/card/qr';
-import { renderCardCanvas } from '@/lib/card/renderCanvas';
 import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lyrics/lrclib';
 import { streamSongDna } from '@/lib/song-dna/client';
 import { proxyCoverUrl } from '@/lib/card/coverProxy';
-import type { Platform } from '@/lib/music/url';
 import { platforms } from '@/lib/music/platforms';
+import { recordEvent } from '@/lib/clientEvents';
 import styles from '@/app/page.module.css';
 
-function recordEvent(type: 'view' | 'export'): void {
-  fetch('/api/track-view', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type }),
-    keepalive: true,
-  }).catch(() => {});
-}
-
 const MAX_SELECTED_LYRICS = 4;
-
-function sanitizeFilename(title: string, platform: Platform): string {
-  const cleaned = title
-    .replace(/[^\w一-鿿-]+/g, '_')
-    .slice(0, 40)
-    .replace(/^_+|_+$/g, '');
-  return `${platforms[platform].filePrefix}-${cleaned || 'track'}.png`;
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error('Canvas toBlob returned null'))),
-      'image/png',
-    );
-  });
-}
-
-function triggerDownload(url: string, filename: string): void {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-function isDesktopPlatform(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const platform = navigator.platform ?? '';
-  const ua = navigator.userAgent;
-  return /Mac|Win|Linux|CrOS/i.test(platform) || /Macintosh|Windows|X11|Linux/i.test(ua);
-}
-
-function shouldUseMobileShare(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  if (isDesktopPlatform()) return false;
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-}
-
-type ShareResult = 'ok' | 'cancelled' | 'unsupported';
-
-async function tryShareFile(blob: Blob, filename: string): Promise<ShareResult> {
-  if (typeof navigator === 'undefined') return 'unsupported';
-  if (typeof navigator.share !== 'function') return 'unsupported';
-
-  const file = new File([blob], filename, { type: 'image/png' });
-  if (
-    typeof navigator.canShare !== 'function' ||
-    !navigator.canShare({ files: [file] })
-  ) {
-    return 'unsupported';
-  }
-
-  try {
-    await navigator.share({ files: [file] });
-    return 'ok';
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
-    return 'unsupported';
-  }
-}
 
 type Props = {
   /** Reconstructed canonical URL for the track (built from slug params).
@@ -112,10 +41,14 @@ type Props = {
 export default function SongView({ canonicalUrl }: Props) {
   const { state, refetch } = useTrackInfo(canonicalUrl);
   const [qrSvg, setQrSvg] = useState<string>('');
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [fallbackImageUrl, setFallbackImageUrl] = useState<string | null>(null);
-  const [useMobileShare, setUseMobileShare] = useState(false);
+  const {
+    exporting,
+    exportError,
+    fallbackImageUrl,
+    useMobileShare,
+    exportCard,
+    closeFallback,
+  } = useCardExport();
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [songDnaState, setSongDnaState] = useState<SongDnaState>({ kind: 'idle' });
@@ -127,10 +60,6 @@ export default function SongView({ canonicalUrl }: Props) {
   >(null);
   const helixAnchorRef = useRef<HTMLDivElement>(null);
   const headerBadgeRef = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    setUseMobileShare(shouldUseMobileShare());
-  }, []);
 
   const [pageScrolled, setPageScrolled] = useState(false);
   useEffect(() => {
@@ -302,26 +231,12 @@ export default function SongView({ canonicalUrl }: Props) {
     return () => ctrl.abort();
   }, [state]);
 
-  useEffect(() => {
-    return () => {
-      if (fallbackImageUrl) URL.revokeObjectURL(fallbackImageUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const toggleLyric = (idx: number) => {
     setSelectedIndices((prev) => {
       const at = prev.indexOf(idx);
       if (at >= 0) return prev.filter((i) => i !== idx);
       if (prev.length >= MAX_SELECTED_LYRICS) return [...prev.slice(1), idx];
       return [...prev, idx];
-    });
-  };
-
-  const closeFallback = () => {
-    setFallbackImageUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return null;
     });
   };
 
@@ -439,48 +354,13 @@ export default function SongView({ canonicalUrl }: Props) {
     }
   }
 
-  const handleExport = async () => {
-    if (state.kind !== 'success' || !qrSvg) return;
-    setExporting(true);
-    setExportError(null);
-    try {
-      const canvas = await renderCardCanvas({
-        title: state.track.title,
-        artist: state.track.artist,
-        coverUrl: proxyCoverUrl(state.track.coverUrl),
-        qrSvg,
-        platform: state.track.platform,
-        lyrics: selectedLyricLines,
-        targetWidth: 1920,
-      });
-
-      const blob = await canvasToBlob(canvas);
-      const filename = sanitizeFilename(state.track.title, state.track.platform);
-
-      const mobileShare = shouldUseMobileShare();
-      setUseMobileShare(mobileShare);
-
-      if (mobileShare) {
-        const result = await tryShareFile(blob, filename);
-        if (result === 'unsupported') {
-          const url = URL.createObjectURL(blob);
-          setFallbackImageUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return url;
-          });
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        triggerDownload(url, filename);
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      }
-
-      recordEvent('export');
-    } catch (err) {
-      setExportError(err instanceof Error ? err.message : '导出失败');
-    } finally {
-      setExporting(false);
-    }
+  const handleExport = () => {
+    if (state.kind !== 'success') return;
+    void exportCard({
+      track: state.track,
+      qrSvg,
+      lyrics: selectedLyricLines,
+    });
   };
 
   const stage: 'loading' | 'error' | 'success' =
