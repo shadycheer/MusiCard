@@ -2,6 +2,8 @@ node_modules
 .next/
 out/
 tsconfig.tsbuildinfo
+# npm lockfile — project uses pnpm; keep only pnpm-lock.yaml committed.
+package-lock.json
 
 *.log
 .DS_Store
