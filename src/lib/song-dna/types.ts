@@ -24,3 +24,26 @@ export type SongDnaStreamEvent =
   | { kind: 'chunk'; text: string }
   | { kind: 'final'; payload: SongDnaPayload; cached: boolean; cachedAt?: string }
   | { kind: 'error'; message: string };
+
+/* UI-side state machine the hook + panel both consume. Distinct from
+   the API events above — `loading` carries the human-readable
+   `currentAction` derived from the latest status phase, and `found`
+   embeds the cache metadata so the docked-badge UI can branch on
+   fresh-vs-cached at render time. */
+export type SongDnaFound_State = {
+  payload: SongDnaFound;
+  cached: boolean;
+  cachedAt?: string;
+};
+
+export type SongDnaState =
+  | { kind: 'idle' }
+  | {
+      kind: 'loading';
+      phase: SongDnaLoadingPhase;
+      currentAction: string;
+      streamedContent?: string;
+    }
+  | ({ kind: 'found' } & SongDnaFound_State)
+  | { kind: 'empty' }
+  | { kind: 'error'; message: string };

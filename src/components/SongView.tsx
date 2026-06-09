@@ -1,25 +1,16 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useEffect, useState } from 'react';
 import ShareCard from '@/components/cards/ShareCard';
 import CardSkeleton from '@/components/cards/CardSkeleton';
 import LyricsPicker from '@/components/lyrics/LyricsPicker';
-import SongDnaPanel, {
-  type SongDnaState,
-  formatCacheTime,
-} from '@/components/song-dna/SongDnaPanel';
+import SongDnaPanel, { formatCacheTime } from '@/components/song-dna/SongDnaPanel';
 import SongDnaDoneBadge from '@/components/song-dna/SongDnaDoneBadge';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
 import { useCardExport } from '@/hooks/useCardExport';
 import { useLyricsRace } from '@/hooks/useLyricsRace';
+import { useSongDna } from '@/hooks/useSongDna';
 import { generateQrSvg } from '@/lib/card/qr';
-import { streamSongDna } from '@/lib/song-dna/client';
 import { proxyCoverUrl } from '@/lib/card/coverProxy';
 import { recordEvent } from '@/lib/clientEvents';
 import styles from '@/app/page.module.css';
@@ -58,15 +49,16 @@ export default function SongView({ canonicalUrl }: Props) {
     state.kind === 'success' ? state.track : null,
     MAX_SELECTED_LYRICS,
   );
-  const [songDnaState, setSongDnaState] = useState<SongDnaState>({ kind: 'idle' });
-  type BadgeStage = 'none' | 'helix-large' | 'migrating' | 'header-docked';
-  const [badgeStage, setBadgeStage] = useState<BadgeStage>('none');
-  const [migrationCoords, setMigrationCoords] = useState<
-    | { from: { x: number; y: number }; to: { x: number; y: number } }
-    | null
-  >(null);
-  const helixAnchorRef = useRef<HTMLDivElement>(null);
-  const headerBadgeRef = useRef<HTMLSpanElement>(null);
+  const {
+    state: songDnaState,
+    request: requestSongDna,
+    hasContent: hasSongDnaContent,
+    badgeStage,
+    setBadgeStage,
+    migrationCoords,
+    helixAnchorRef,
+    headerBadgeRef,
+  } = useSongDna(state.kind === 'success' ? state.track : null);
 
   const [pageScrolled, setPageScrolled] = useState(false);
   useEffect(() => {
@@ -75,48 +67,6 @@ export default function SongView({ canonicalUrl }: Props) {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
-  const hasSongDnaContent = useMemo(() => {
-    if (songDnaState.kind === 'found') return true;
-    if (
-      songDnaState.kind === 'loading' &&
-      (songDnaState.streamedContent ?? '').length > 0
-    )
-      return true;
-    return false;
-  }, [songDnaState]);
-
-  const isSongDnaCachedHit =
-    songDnaState.kind === 'found' && songDnaState.cached === true;
-
-  useEffect(() => {
-    if (!hasSongDnaContent) {
-      setBadgeStage('none');
-      setMigrationCoords(null);
-      return;
-    }
-    if (isSongDnaCachedHit) {
-      setBadgeStage('header-docked');
-      setMigrationCoords(null);
-      return;
-    }
-    const tHelix = window.setTimeout(() => setBadgeStage('helix-large'), 450);
-    const tMigrate = window.setTimeout(() => {
-      if (helixAnchorRef.current && headerBadgeRef.current) {
-        const h = helixAnchorRef.current.getBoundingClientRect();
-        const hd = headerBadgeRef.current.getBoundingClientRect();
-        setMigrationCoords({
-          from: { x: h.left + h.width / 2, y: h.top + h.height / 2 },
-          to: { x: hd.left + hd.width / 2, y: hd.top + hd.height / 2 },
-        });
-      }
-      setBadgeStage('migrating');
-    }, 650);
-    return () => {
-      window.clearTimeout(tHelix);
-      window.clearTimeout(tMigrate);
-    };
-  }, [hasSongDnaContent, isSongDnaCachedHit]);
 
   useEffect(() => {
     if (state.kind !== 'success') {
@@ -132,127 +82,6 @@ export default function SongView({ canonicalUrl }: Props) {
       cancelled = true;
     };
   }, [state]);
-
-  /* Track changes also reset the Song DNA stream — abort any in-flight
-     fetch and clear the panel so the new track starts from idle. */
-  useEffect(() => {
-    songDnaAbortRef.current?.abort();
-    setSongDnaState({ kind: 'idle' });
-  }, [state]);
-
-  const songDnaAbortRef = useRef<AbortController | null>(null);
-
-  const requestSongDna = useCallback(
-    async (refresh = false) => {
-      if (state.kind !== 'success') return;
-
-      songDnaAbortRef.current?.abort();
-      const ctrl = new AbortController();
-      songDnaAbortRef.current = ctrl;
-
-      setSongDnaState({
-        kind: 'loading',
-        phase: refresh ? 'refreshing' : 'reading',
-        currentAction: refresh ? '正在重新检索…' : '正在读取这首歌的资料…',
-        streamedContent: '',
-      });
-
-      const params = new URLSearchParams({
-        title: state.track.title,
-        artist: state.track.artist,
-        platform: state.track.platform,
-        sourceUrl: state.track.sourceUrl,
-        ...(refresh ? { refresh: 'true' } : {}),
-      });
-
-      try {
-        let receivedTerminal = false;
-        await streamSongDna(
-          `/api/song-dna?${params.toString()}`,
-          (event) => {
-            if (event.kind === 'status') {
-              setSongDnaState((s) =>
-                s.kind === 'loading'
-                  ? {
-                      kind: 'loading',
-                      phase: event.phase,
-                      currentAction: phaseToText(event.phase, event.detail),
-                      streamedContent: s.streamedContent ?? '',
-                    }
-                  : s,
-              );
-            } else if (event.kind === 'chunk') {
-              setSongDnaState((s) =>
-                s.kind === 'loading'
-                  ? {
-                      ...s,
-                      streamedContent: (s.streamedContent ?? '') + event.text,
-                    }
-                  : s,
-              );
-            } else if (event.kind === 'final') {
-              receivedTerminal = true;
-              if (event.payload.hasData) {
-                setSongDnaState({
-                  kind: 'found',
-                  payload: event.payload,
-                  cached: event.cached,
-                  cachedAt: event.cachedAt,
-                });
-              } else {
-                setSongDnaState({ kind: 'empty' });
-              }
-            } else if (event.kind === 'error') {
-              receivedTerminal = true;
-              setSongDnaState({ kind: 'error', message: event.message });
-            }
-          },
-          ctrl.signal,
-        );
-        if (!receivedTerminal && !ctrl.signal.aborted) {
-          setSongDnaState({
-            kind: 'error',
-            message: '查询超时或流意外终止',
-          });
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setSongDnaState({
-          kind: 'error',
-          message: err instanceof Error ? err.message : '请求失败',
-        });
-      }
-    },
-    [state],
-  );
-
-  function phaseToText(
-    phase:
-      | 'started'
-      | 'searching'
-      | 'analyzing'
-      | 'synthesizing'
-      | 'reading'
-      | 'refreshing',
-    detail?: string,
-  ): string {
-    switch (phase) {
-      case 'started':
-        return '正在准备检索…';
-      case 'searching':
-        return detail ? `正在搜索：${detail}` : 'AI 正在联网检索…';
-      case 'analyzing':
-        return detail ?? '正在阅读搜索结果…';
-      case 'synthesizing':
-        return '正在整合资料并撰写…';
-      case 'reading':
-        return '正在读取这首歌的资料…';
-      case 'refreshing':
-        return '正在重新检索…';
-      default:
-        return detail ?? '正在处理资料…';
-    }
-  }
 
   const handleExport = () => {
     if (state.kind !== 'success') return;

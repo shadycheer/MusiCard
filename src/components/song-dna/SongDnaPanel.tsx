@@ -3,10 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import type {
-  SongDnaFound,
-  SongDnaLoadingPhase,
-} from '@/lib/song-dna/types';
+import type { SongDnaState } from '@/lib/song-dna/types';
 import type { DnaHelixPhase } from './DnaHelix';
 import SongDnaDoneBadge from './SongDnaDoneBadge';
 import styles from './SongDnaPanel.module.css';
@@ -22,22 +19,7 @@ export const HERO_LAUNCH_DELAY_MS = 380;
    a tight box for the new compact spinner (radius 1.45 ≈ 80px). */
 export const HELIX_HEIGHT_PX = 180;
 
-export type SongDnaState =
-  | { kind: 'idle' }
-  | {
-      kind: 'loading';
-      phase: SongDnaLoadingPhase;
-      currentAction: string;
-      streamedContent?: string;
-    }
-  | {
-      kind: 'found';
-      payload: SongDnaFound;
-      cached: boolean;
-      cachedAt?: string;
-    }
-  | { kind: 'empty' }
-  | { kind: 'error'; message: string };
+export type { SongDnaState };
 
 type Props = {
   state: SongDnaState;
