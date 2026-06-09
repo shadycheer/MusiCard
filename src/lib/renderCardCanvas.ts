@@ -631,10 +631,10 @@ async function renderNetease(opts: RenderOpts): Promise<HTMLCanvasElement> {
 const QQ = {
   padding: 22,
   gap: 18,
-  // Sleeve takes 82% of card width; disc takes 70% and sits right:0.
-  sleeveRatio: 0.82,
-  sleevePad: 6,
-  discRatio: 0.70,
+  // Sleeve takes 78% of card width; disc takes 74% and sits right:0.
+  sleeveRatio: 0.78,
+  sleevePad: 4,
+  discRatio: 0.74,
   titleSize: 22,
   titleLineHeight: 26.4,
   artistSize: 13.5,
@@ -643,19 +643,19 @@ const QQ = {
   lyricSize: 13,
   lyricLineHeight: 21.45, // 13 * 1.65
   lyricGap: 4,
-  brandLogoSize: 36,
-  qrSize: 44,
+  brandLogoSize: 40,
+  qrSize: 48,
   qrPad: 3,
-  bg: '#B8D982',
+  bg: '#C7DCA0',
   titleColor: '#1A2710',
   artistColor: 'rgba(26, 39, 16, 0.62)',
   lyricColor: 'rgba(26, 39, 16, 0.85)',
   sleeveBg: '#FFFFFF',
-  discInner: '#6E726B',
-  discOuter: '#4A4D48',
-  discRimDark: 'rgba(0, 0, 0, 0.25)',
+  discInner: '#5F635D',
+  discOuter: '#3D403B',
+  discRimDark: 'rgba(0, 0, 0, 0.28)',
   discGroove: 'rgba(255, 255, 255, 0.05)',
-  hubBg: '#B8D982',
+  hubBg: '#C7DCA0',
   hubInnerRing: '#FFFFFF',
 };
 

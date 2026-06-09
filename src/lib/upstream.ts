@@ -178,7 +178,7 @@ type QqSongResponse = {
   data?: Array<{
     mid: string;
     name: string;
-    singer: Array<{ name: string }>;
+    singer: Array<{ mid?: string; name: string }>;
     album: { mid: string; name: string };
   }>;
 };
@@ -196,9 +196,17 @@ export async function fetchQqMusicTrack(songIdOrMid: string): Promise<UpstreamFi
   if (data.code !== 0 || !data.data?.[0]) throw new Error('track not found');
   const song = data.data[0];
 
-  const coverUrl = song.album.mid
-    ? `https://y.qq.com/music/photo_new/T002R800x800M000${song.album.mid}.jpg`
-    : '';
+  /* Cover URL priority: album cover (T002R) → singer cover (T001R).
+     QQ singles like remixes often come back with album.mid empty,
+     which would otherwise render as a 404'd white square. The singer
+     mid is almost always present in those cases. */
+  const albumMid = song.album.mid;
+  const singerMid = song.singer.find((s) => s.mid)?.mid;
+  const coverUrl = albumMid
+    ? `https://y.qq.com/music/photo_new/T002R800x800M000${albumMid}.jpg`
+    : singerMid
+      ? `https://y.qq.com/music/photo_new/T001R800x800M000${singerMid}.jpg`
+      : '';
 
   /* Always emit songDetail/{songmid} — that's the canonical share URL
      QQ Music itself produces. The trackToSlug helper reads this back to

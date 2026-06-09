@@ -4,9 +4,9 @@
 
 .card {
   width: calc(320px * var(--s, 1));
-  /* Flat green — no competing radials. Lets the sleeve + disc do the
-     talking. */
-  background: #B8D982;
+  /* Softer grass — less saturated than the first pass, keeps brand
+     character without screaming. */
+  background: #C7DCA0;
   color: #1A2710;
   display: flex;
   flex-direction: column;
@@ -25,18 +25,19 @@
   width: 100%;
 }
 
-/* White sleeve — slimmer padding (6px) so the cover is the hero, not
-   the border. Sleeve takes 82% of stage so the disc can peek out 18%. */
+/* Sleeve is now a hairline frame, not a paper border — 4px padding so
+   the cover is the hero. Inner black hairline at 5% alpha lifts the
+   cover off the white. Sleeve takes 78% so the disc can peek out 22%. */
 .coverWrap {
   position: relative;
-  width: 82%;
+  width: 78%;
   aspect-ratio: 1 / 1;
-  padding: calc(6px * var(--s, 1));
+  padding: calc(4px * var(--s, 1));
   background: #FFFFFF;
   box-sizing: border-box;
   box-shadow:
-    0 calc(8px * var(--s, 1)) calc(18px * var(--s, 1)) rgba(28, 40, 14, 0.22),
-    0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.10);
+    0 calc(10px * var(--s, 1)) calc(22px * var(--s, 1)) rgba(28, 40, 14, 0.26),
+    0 calc(1px * var(--s, 1)) calc(2px * var(--s, 1)) rgba(0, 0, 0, 0.12);
   z-index: 2;
 }
 
@@ -45,31 +46,33 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  box-shadow: inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.05);
 }
 
 /* Disc — softened slate that reads against the grass without screaming.
-   Three layers: highlight, concentric grooves, base. */
+   Three layers: highlight, concentric grooves, base. 74% wide so the
+   peek matches the new 78% sleeve. */
 .disc {
   position: absolute;
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-  width: 70%;
+  width: 74%;
   aspect-ratio: 1 / 1;
   border-radius: 50%;
   background:
     radial-gradient(ellipse 60% 80% at 65% 30%, rgba(255, 255, 255, 0.12) 0%, transparent 55%),
     repeating-radial-gradient(
       circle at 50% 50%,
-      #6E726B 0,
-      #6E726B 1px,
-      #5C605A 1px,
-      #5C605A 2px
+      #5F635D 0,
+      #5F635D 1px,
+      #4F534D 1px,
+      #4F534D 2px
     ),
-    linear-gradient(135deg, #6E726B 0%, #4A4D48 100%);
+    linear-gradient(135deg, #5F635D 0%, #3D403B 100%);
   box-shadow:
-    0 calc(4px * var(--s, 1)) calc(10px * var(--s, 1)) rgba(28, 40, 14, 0.22),
-    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.25);
+    0 calc(6px * var(--s, 1)) calc(14px * var(--s, 1)) rgba(28, 40, 14, 0.28),
+    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.28);
   z-index: 1;
 }
 
@@ -81,9 +84,9 @@
   height: 16%;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #B8D982;
+  background: #C7DCA0;
   box-shadow:
-    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.22),
+    inset 0 0 0 calc(1px * var(--s, 1)) rgba(0, 0, 0, 0.25),
     inset 0 0 0 calc(3px * var(--s, 1)) #FFFFFF;
 }
 
@@ -157,8 +160,8 @@
 
 .brandLockup {
   display: block;
-  height: calc(36px * var(--s, 1));
-  width: calc(36px * var(--s, 1));
+  height: calc(40px * var(--s, 1));
+  width: calc(40px * var(--s, 1));
   flex-shrink: 0;
 }
 
@@ -169,8 +172,8 @@
 }
 
 .qr {
-  width: calc(44px * var(--s, 1));
-  height: calc(44px * var(--s, 1));
+  width: calc(48px * var(--s, 1));
+  height: calc(48px * var(--s, 1));
   flex-shrink: 0;
   background: #ffffff;
   padding: calc(3px * var(--s, 1));
