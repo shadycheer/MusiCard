@@ -1,5 +1,6 @@
 import type { Platform, ParseResult } from './url';
 import type { Track } from './songlink';
+import { platforms } from './platforms';
 
 /* URL-slug encoding of a track identity.
 
@@ -29,51 +30,11 @@ export function buildSlug(
   externalId: string,
   country: string | null,
 ): string {
-  if (platform === 'spotify') return `spotify-${externalId}`;
-  if (platform === 'netease') return `netease-${externalId}`;
-  if (platform === 'qqMusic') return `qq-${externalId}`;
-  if (platform === 'appleMusic') {
-    return `apple-${country ?? 'us'}-${externalId}`;
-  }
-  throw new Error(`Unknown platform: ${platform}`);
+  return platforms[platform].slugFromIds(externalId, country);
 }
 
 export function trackToSlug(t: Track): string | null {
-  /* Spotify / NetEase: pull the id straight from the canonical URL.
-     We don't store externalId on the Track type today, so we re-parse
-     to stay decoupled from the DB schema. */
-  if (t.platform === 'spotify') {
-    const m = t.sourceUrl.match(/\/track\/([A-Za-z0-9]{22})/);
-    return m ? `spotify-${m[1]}` : null;
-  }
-  if (t.platform === 'netease') {
-    const m = t.sourceUrl.match(/\bid=(\d+)/);
-    return m ? `netease-${m[1]}` : null;
-  }
-  if (t.platform === 'qqMusic') {
-    const m = t.sourceUrl.match(/\/songDetail\/([A-Za-z0-9]+)/);
-    return m ? `qq-${m[1]}` : null;
-  }
-  if (t.platform === 'appleMusic') {
-    /* Apple URLs look like /{country}/album/{slug}/{albumId}?i={trackId}
-       or /{country}/song/{slug}/{trackId}. */
-    try {
-      const url = new URL(t.sourceUrl);
-      const parts = url.pathname.split('/').filter(Boolean);
-      const country = parts[0];
-      if (!/^[a-z]{2}$/.test(country)) return null;
-      const kind = parts[1];
-      const trackId =
-        kind === 'song'
-          ? parts[3]
-          : url.searchParams.get('i');
-      if (!trackId || !/^\d+$/.test(trackId)) return null;
-      return `apple-${country}-${trackId}`;
-    } catch {
-      return null;
-    }
-  }
-  return null;
+  return platforms[t.platform].slugFromTrack(t);
 }
 
 export function parseSlug(slug: string): ParsedSlug | null {

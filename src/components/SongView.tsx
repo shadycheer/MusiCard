@@ -22,6 +22,7 @@ import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lyrics/lrclib';
 import { streamSongDna } from '@/lib/song-dna/client';
 import { proxyCoverUrl } from '@/lib/card/coverProxy';
 import type { Platform } from '@/lib/music/url';
+import { platforms } from '@/lib/music/platforms';
 import styles from '@/app/page.module.css';
 
 function recordEvent(type: 'view' | 'export'): void {
@@ -40,15 +41,7 @@ function sanitizeFilename(title: string, platform: Platform): string {
     .replace(/[^\w一-鿿-]+/g, '_')
     .slice(0, 40)
     .replace(/^_+|_+$/g, '');
-  const prefix =
-    platform === 'spotify'
-      ? 'spotify-card'
-      : platform === 'netease'
-        ? 'netease-card'
-        : platform === 'qqMusic'
-          ? 'qq-music-card'
-          : 'apple-music-card';
-  return `${prefix}-${cleaned || 'track'}.png`;
+  return `${platforms[platform].filePrefix}-${cleaned || 'track'}.png`;
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -238,11 +231,11 @@ export default function SongView({ canonicalUrl }: Props) {
     const { title, artist, platform, sourceUrl } = state.track;
     const neteaseId =
       platform === 'netease'
-        ? sourceUrl.match(/[?&]id=(\d+)/)?.[1]
+        ? (platforms.netease.trackIdFromUrl(sourceUrl) ?? undefined)
         : undefined;
     const qqMid =
       platform === 'qqMusic'
-        ? sourceUrl.match(/\/songDetail\/([A-Za-z0-9]+)/)?.[1]
+        ? (platforms.qqMusic.trackIdFromUrl(sourceUrl) ?? undefined)
         : undefined;
 
     /* Race orchestration — see history at src/app/page.tsx@89fb0e1 for
