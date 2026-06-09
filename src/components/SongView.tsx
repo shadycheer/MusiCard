@@ -637,49 +637,62 @@ export default function SongView({ canonicalUrl }: Props) {
                       )}
                     <span
                       ref={headerBadgeRef}
-                      className={styles.headerBadgeSlot}
+                      className={`${styles.headerBadgeSlot} ${
+                        songDnaState.kind === 'loading' && !hasSongDnaContent
+                          ? styles.headerBadgeSlotThinking
+                          : ''
+                      }`}
                       aria-hidden={
                         badgeStage !== 'header-docked' &&
                         !(songDnaState.kind === 'loading' && !hasSongDnaContent)
                       }
                     >
-                      {badgeStage === 'header-docked' && (
-                        <button
-                          type="button"
-                          className={styles.headerRefresh}
-                          onClick={() => requestSongDna(true)}
-                          disabled={songDnaState.kind === 'loading'}
-                          aria-label="重新检索"
-                          title="重新检索"
+                      {badgeStage === 'header-docked' &&
+                        (songDnaState.kind === 'found' && songDnaState.cached ? (
+                          <button
+                            type="button"
+                            className={styles.headerRefresh}
+                            onClick={() => requestSongDna(true)}
+                            aria-label="重新检索"
+                            title="重新检索"
+                          >
+                            <svg
+                              viewBox="0 0 16 16"
+                              width="11"
+                              height="11"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.7"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden
+                            >
+                              <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
+                              <path d="M13.5 2.5v3h-3" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <SongDnaDoneBadge size="small" />
+                        ))}
+                      {songDnaState.kind === 'loading' && !hasSongDnaContent && (
+                        <span
+                          className={styles.headerThinking}
+                          role="status"
+                          aria-live="polite"
                         >
                           <svg
                             viewBox="0 0 16 16"
-                            width="11"
-                            height="11"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.7"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden
-                          >
-                            <path d="M13.5 8a5.5 5.5 0 1 1-1.62-3.9" />
-                            <path d="M13.5 2.5v3h-3" />
-                          </svg>
-                        </button>
-                      )}
-                      {songDnaState.kind === 'loading' && !hasSongDnaContent && (
-                        <span className={styles.headerThinking} aria-label="正在生成">
-                          <svg
-                            viewBox="0 0 16 16"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
+                            strokeWidth="2"
                             strokeLinecap="round"
                             aria-hidden
                           >
-                            <path d="M14 8a6 6 0 1 1-3-5.2" />
+                            <path d="M 8 2 A 6 6 0 1 1 2 8" />
                           </svg>
+                          <span className={styles.headerThinkingText}>
+                            {songDnaState.currentAction || '正在思考…'}
+                          </span>
                         </span>
                       )}
                     </span>
