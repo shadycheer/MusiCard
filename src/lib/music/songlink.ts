@@ -1,5 +1,5 @@
 import type { Platform } from './url';
-import { fetchAppleMusicTrack } from './appleMusic';
+import { platforms } from './platforms';
 import { getCachedTrack, setCachedTrack } from '@/lib/storage/trackCache';
 
 export type Track = {
@@ -15,106 +15,7 @@ export type Track = {
   albumName?: string;
 };
 
-export async function fetchTrack(
-  canonicalUrl: string,
-  platform: Platform,
-  signal?: AbortSignal,
-): Promise<Track> {
-  const cached = getCachedTrack(canonicalUrl);
-  if (cached) return cached;
-
-  const track =
-    platform === 'appleMusic'
-      ? await fetchAppleMusicTrack(canonicalUrl, signal)
-      : platform === 'netease'
-        ? await fetchNeteaseTrack(canonicalUrl, signal)
-        : platform === 'qqMusic'
-          ? await fetchQqMusicTrack(canonicalUrl, signal)
-          : await fetchSpotifyTrack(canonicalUrl, signal);
-
-  setCachedTrack(canonicalUrl, track);
-  return track;
-}
-
-async function fetchSpotifyTrack(
-  canonicalUrl: string,
-  signal?: AbortSignal,
-): Promise<Track> {
-  const match = canonicalUrl.match(/\/track\/([A-Za-z0-9]{22})/);
-  if (!match) throw new Error('Spotify URL missing track id');
-  const trackId = match[1];
-
-  const res = await fetch(`/api/spotify-track?id=${trackId}`, { signal });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error || `查询失败 (${res.status})`);
-  }
-  const data = (await res.json()) as TrackApiResponse;
-
-  return {
-    title: data.title,
-    artist: data.artist,
-    coverUrl: data.coverUrl,
-    sourceUrl: data.sourceUrl || canonicalUrl,
-    platform: 'spotify',
-    albumId: data.albumId ?? undefined,
-    albumName: data.albumName ?? undefined,
-  };
-}
-
-async function fetchNeteaseTrack(
-  canonicalUrl: string,
-  signal?: AbortSignal,
-): Promise<Track> {
-  const match = canonicalUrl.match(/\bid=(\d+)/);
-  if (!match) throw new Error('NetEase URL missing track id');
-  const trackId = match[1];
-
-  const res = await fetch(`/api/netease-track?id=${trackId}`, { signal });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error || `查询失败 (${res.status})`);
-  }
-  const data = (await res.json()) as TrackApiResponse;
-
-  return {
-    title: data.title,
-    artist: data.artist,
-    coverUrl: data.coverUrl,
-    sourceUrl: data.sourceUrl || canonicalUrl,
-    platform: 'netease',
-    albumId: data.albumId ?? undefined,
-    albumName: data.albumName ?? undefined,
-  };
-}
-
-async function fetchQqMusicTrack(
-  canonicalUrl: string,
-  signal?: AbortSignal,
-): Promise<Track> {
-  const match = canonicalUrl.match(/\/songDetail\/([A-Za-z0-9]+)/);
-  if (!match) throw new Error('QQ Music URL missing songmid');
-  const trackId = match[1];
-
-  const res = await fetch(`/api/qq-track?id=${trackId}`, { signal });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error || `查询失败 (${res.status})`);
-  }
-  const data = (await res.json()) as TrackApiResponse;
-
-  return {
-    title: data.title,
-    artist: data.artist,
-    coverUrl: data.coverUrl,
-    sourceUrl: data.sourceUrl || canonicalUrl,
-    platform: 'qqMusic',
-    albumId: data.albumId ?? undefined,
-    albumName: data.albumName ?? undefined,
-  };
-}
-
-/* Shared response shape — all three /api/*-track endpoints return
+/* Shared response shape — all four /api/*-track endpoints return
    the same flat fields. albumId/albumName are nullable because some
    upstream responses don't carry album info. */
 type TrackApiResponse = {
@@ -125,3 +26,43 @@ type TrackApiResponse = {
   albumId?: string | null;
   albumName?: string | null;
 };
+
+/* Single fetcher driven by the platform registry. The shape that used
+   to be four near-identical wrappers (one per platform, each repeating
+   the same regex → fetch → error-handling → mapping flow) collapses
+   to one function — the only per-platform variance is the API route
+   and the query params, both supplied by platforms[platform]. */
+export async function fetchTrack(
+  canonicalUrl: string,
+  platform: Platform,
+  signal?: AbortSignal,
+): Promise<Track> {
+  const cached = getCachedTrack(canonicalUrl);
+  if (cached) return cached;
+
+  const meta = platforms[platform];
+  const query = meta.apiQuery(canonicalUrl);
+  if (!query) {
+    throw new Error(`${meta.label} 链接里找不到曲目 ID`);
+  }
+
+  const qs = new URLSearchParams(query).toString();
+  const res = await fetch(`/api/${meta.apiRoute}?${qs}`, { signal });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error || `查询失败 (${res.status})`);
+  }
+  const data = (await res.json()) as TrackApiResponse;
+
+  const track: Track = {
+    title: data.title,
+    artist: data.artist,
+    coverUrl: data.coverUrl,
+    sourceUrl: data.sourceUrl || canonicalUrl,
+    platform,
+    albumId: data.albumId ?? undefined,
+    albumName: data.albumName ?? undefined,
+  };
+  setCachedTrack(canonicalUrl, track);
+  return track;
+}

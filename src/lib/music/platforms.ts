@@ -18,6 +18,14 @@ export type PlatformMeta = {
   /** Filename prefix for exported card PNGs
    *  (e.g., 'spotify-card-{title}.png'). */
   filePrefix: string;
+  /** Backend API route segment under /api (e.g., 'spotify-track' for
+   *  /api/spotify-track). */
+  apiRoute: string;
+  /** Build the query-string params for the platform's /api/*-track
+   *  endpoint. Most platforms need only `id`; Apple Music also needs
+   *  `country` and `source`. Returns null if the URL doesn't match
+   *  the platform's shape. */
+  apiQuery: (sourceUrl: string) => Record<string, string> | null;
   /** Extract the platform-native track id from a canonical URL.
    *  Returns null if the URL doesn't match the platform's shape. */
   trackIdFromUrl: (sourceUrl: string) => string | null;
@@ -64,6 +72,11 @@ export const platforms: Record<Platform, PlatformMeta> = {
   spotify: {
     label: 'Spotify',
     filePrefix: 'spotify-card',
+    apiRoute: 'spotify-track',
+    apiQuery: (url) => {
+      const id = spotifyIdFromUrl(url);
+      return id ? { id } : null;
+    },
     trackIdFromUrl: spotifyIdFromUrl,
     slugFromTrack: (t) => {
       const id = spotifyIdFromUrl(t.sourceUrl);
@@ -74,6 +87,17 @@ export const platforms: Record<Platform, PlatformMeta> = {
   appleMusic: {
     label: 'Apple Music',
     filePrefix: 'apple-music-card',
+    apiRoute: 'apple-music-track',
+    /* Apple uniquely needs country + the original URL — the server-side
+     *  route uses country for the iTunes lookup region and `source` to
+     *  reconstruct the canonical link when iTunes returns abbreviated
+     *  data. */
+    apiQuery: (url) => {
+      const parsed = appleIdAndCountryFromUrl(url);
+      return parsed
+        ? { id: parsed.id, country: parsed.country, source: url }
+        : null;
+    },
     trackIdFromUrl: (url) => appleIdAndCountryFromUrl(url)?.id ?? null,
     slugFromTrack: (t) => {
       const parsed = appleIdAndCountryFromUrl(t.sourceUrl);
@@ -84,6 +108,11 @@ export const platforms: Record<Platform, PlatformMeta> = {
   netease: {
     label: '网易云音乐',
     filePrefix: 'netease-card',
+    apiRoute: 'netease-track',
+    apiQuery: (url) => {
+      const id = neteaseIdFromUrl(url);
+      return id ? { id } : null;
+    },
     trackIdFromUrl: neteaseIdFromUrl,
     slugFromTrack: (t) => {
       const id = neteaseIdFromUrl(t.sourceUrl);
@@ -94,6 +123,11 @@ export const platforms: Record<Platform, PlatformMeta> = {
   qqMusic: {
     label: 'QQ 音乐',
     filePrefix: 'qq-music-card',
+    apiRoute: 'qq-track',
+    apiQuery: (url) => {
+      const id = qqIdFromUrl(url);
+      return id ? { id } : null;
+    },
     trackIdFromUrl: qqIdFromUrl,
     slugFromTrack: (t) => {
       const id = qqIdFromUrl(t.sourceUrl);
