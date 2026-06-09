@@ -23,7 +23,7 @@ const CARDS = [
   },
   {
     file: 'card-apple-music.png',
-    slug: 'apple-us-1572515876', // Old School Vibe / Don Go$$
+    slug: 'apple-us-1440853776', // Imagine / John Lennon — LRCLIB has lyrics
     selector: 'AppleMusicCard',
   },
   {
