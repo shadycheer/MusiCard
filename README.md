@@ -27,26 +27,12 @@ MusiCard 把分享压成**一张图**：歌名、艺人、封面、可选歌词�
 
 ## 卡片
 
-<table>
-  <tr>
-    <td align="center" width="25%">
-      <img src="docs/assets/card-spotify.png" width="200" alt="Spotify card"/><br/>
-      <sub><b>Spotify</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/assets/card-apple-music.png" width="200" alt="Apple Music card"/><br/>
-      <sub><b>Apple Music</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/assets/card-netease.png" width="200" alt="NetEase card"/><br/>
-      <sub><b>网易云</b></sub>
-    </td>
-    <td align="center" width="25%">
-      <img src="docs/assets/card-qq-music.png" width="200" alt="QQ Music card"/><br/>
-      <sub><b>QQ 音乐</b></sub>
-    </td>
-  </tr>
-</table>
+<p align="center">
+  <img src="docs/assets/cards.png" width="900" alt="Spotify · Apple Music · 网易云 · QQ 音乐"/>
+</p>
+<p align="center">
+  <sub>Spotify · Apple Music · 网易云 · QQ 音乐</sub>
+</p>
 
 ## 怎么用
 
