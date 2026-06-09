@@ -7,21 +7,21 @@ import {
   useRef,
   useState,
 } from 'react';
-import ShareCard from '@/components/ShareCard';
-import CardSkeleton from '@/components/CardSkeleton';
-import LyricsPicker, { type LyricsState } from '@/components/LyricsPicker';
-import SongDNAPanel, {
-  type SongDNAState,
+import ShareCard from '@/components/cards/ShareCard';
+import CardSkeleton from '@/components/cards/CardSkeleton';
+import LyricsPicker, { type LyricsState } from '@/components/lyrics/LyricsPicker';
+import SongDnaPanel, {
+  type SongDnaState,
   formatCacheTime,
-} from '@/components/SongDNAPanel';
-import SongDnaDoneBadge from '@/components/SongDnaDoneBadge';
+} from '@/components/song-dna/SongDnaPanel';
+import SongDnaDoneBadge from '@/components/song-dna/SongDnaDoneBadge';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
-import { generateQrSvg } from '@/lib/qr';
-import { renderCardCanvas } from '@/lib/renderCardCanvas';
-import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lrclib';
-import { streamSongDna } from '@/lib/songDnaClient';
-import { proxyCoverUrl } from '@/lib/coverProxy';
-import type { Platform } from '@/lib/musicUrl';
+import { generateQrSvg } from '@/lib/card/qr';
+import { renderCardCanvas } from '@/lib/card/renderCanvas';
+import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lyrics/lrclib';
+import { streamSongDna } from '@/lib/song-dna/client';
+import { proxyCoverUrl } from '@/lib/card/coverProxy';
+import type { Platform } from '@/lib/music/url';
 import styles from '@/app/page.module.css';
 
 function recordEvent(type: 'view' | 'export'): void {
@@ -125,7 +125,7 @@ export default function SongView({ canonicalUrl }: Props) {
   const [useMobileShare, setUseMobileShare] = useState(false);
   const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
-  const [songDnaState, setSongDnaState] = useState<SongDNAState>({ kind: 'idle' });
+  const [songDnaState, setSongDnaState] = useState<SongDnaState>({ kind: 'idle' });
   type BadgeStage = 'none' | 'helix-large' | 'migrating' | 'header-docked';
   const [badgeStage, setBadgeStage] = useState<BadgeStage>('none');
   const [migrationCoords, setMigrationCoords] = useState<
@@ -699,7 +699,7 @@ export default function SongView({ canonicalUrl }: Props) {
                   </div>
                 </header>
                 <div className={styles.panelBody}>
-                  <SongDNAPanel
+                  <SongDnaPanel
                     state={songDnaState}
                     onRequest={requestSongDna}
                     badgeStage={badgeStage}

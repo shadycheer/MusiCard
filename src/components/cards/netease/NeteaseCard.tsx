@@ -1,11 +1,10 @@
 import { forwardRef, useEffect, useState, type CSSProperties } from 'react';
-import styles from './AppleMusicCard.module.css';
-import { appleMusicLockup } from '../assets/icons';
+import styles from './NeteaseCard.module.css';
 import {
   extractCoverPalette,
   darken,
   type ExtractedPalette,
-} from '../lib/colorExtraction';
+} from '@/lib/card/colorExtraction';
 
 type Props = {
   title: string;
@@ -16,11 +15,11 @@ type Props = {
 };
 
 const FALLBACK_PALETTE: ExtractedPalette = {
-  primary: '#4A4138',
-  secondary: '#2A2520',
+  primary: '#3a3a3a',
+  secondary: '#1a1a1a',
 };
 
-const AppleMusicCard = forwardRef<HTMLDivElement, Props>(
+const NeteaseCard = forwardRef<HTMLDivElement, Props>(
   ({ title, artist, coverUrl, qrSvg, lyrics }, ref) => {
     const hasLyrics = lyrics && lyrics.length > 0;
     const [palette, setPalette] = useState<ExtractedPalette>(FALLBACK_PALETTE);
@@ -37,19 +36,26 @@ const AppleMusicCard = forwardRef<HTMLDivElement, Props>(
     }, [coverUrl]);
 
     const cardStyle: CSSProperties = {
-      ['--am-primary' as string]: palette.primary,
-      ['--am-secondary' as string]: darken(palette.secondary, 0.25),
+      ['--nt-primary' as string]: darken(palette.primary, 0.55),
+      ['--nt-secondary' as string]: darken(palette.secondary, 0.75),
     };
 
     return (
       <div ref={ref} className={styles.card} style={cardStyle}>
-        <div className={styles.coverWrap}>
-          <img
-            src={coverUrl}
-            alt=""
-            className={styles.cover}
-            crossOrigin="anonymous"
-          />
+        <div className={styles.vinylStage}>
+          <div className={styles.vinylHalo} aria-hidden />
+          <div className={styles.vinyl} aria-hidden>
+            <div className={styles.vinylGrooves} />
+            <div className={styles.vinylShine} />
+            <div className={styles.label}>
+              <img
+                src={coverUrl}
+                alt=""
+                className={styles.cover}
+                crossOrigin="anonymous"
+              />
+            </div>
+          </div>
         </div>
 
         <div className={styles.info}>
@@ -59,26 +65,19 @@ const AppleMusicCard = forwardRef<HTMLDivElement, Props>(
 
         {hasLyrics && (
           <div className={styles.lyrics}>
-            {lyrics.map((line, i) => {
-              const isEdge =
-                lyrics.length >= 3 && (i === 0 || i === lyrics.length - 1);
-              return (
-                <p
-                  key={i}
-                  className={`${styles.lyricLine} ${isEdge ? styles.lyricLineEdge : ''}`}
-                >
-                  {line}
-                </p>
-              );
-            })}
+            {lyrics.map((line, i) => (
+              <p key={i} className={styles.lyricLine}>
+                {line}
+              </p>
+            ))}
           </div>
         )}
 
         <div className={styles.foot}>
-          <span
-            className={styles.brandLockup}
-            dangerouslySetInnerHTML={{ __html: appleMusicLockup }}
-            aria-label="Apple Music"
+          <img
+            src="/netease-logo-dark.svg"
+            alt="网易云音乐"
+            className={styles.brandLogo}
           />
           <div
             className={styles.qr}
@@ -90,5 +89,5 @@ const AppleMusicCard = forwardRef<HTMLDivElement, Props>(
   },
 );
 
-AppleMusicCard.displayName = 'AppleMusicCard';
-export default AppleMusicCard;
+NeteaseCard.displayName = 'NeteaseCard';
+export default NeteaseCard;

@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import styles from './SpotifyCard.module.css';
-import { spotifyLockup } from '../assets/icons';
+import { spotifyLockup } from '@/assets/icons';
 
 type Props = {
   title: string;

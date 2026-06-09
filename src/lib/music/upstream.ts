@@ -3,8 +3,8 @@
  * no DB. The routes and the cron refresher both call these.
  */
 
-import type { CachedTrack } from './db';
-import { fetchSongDetailViaWeapi } from './neteaseWeapi';
+import type { CachedTrack } from '@/lib/storage/db';
+import { fetchSongDetailViaWeapi } from './netease';
 
 type UpstreamFields = Pick<
   CachedTrack,
@@ -150,7 +150,7 @@ export async function fetchAppleMusicTrack(
 }
 
 /** Fetch NetEase track metadata via the community-reverse-engineered weapi
- *  protocol. See `neteaseWeapi.ts` for protocol details and the rationale
+ *  protocol. See `netease.ts` for protocol details and the rationale
  *  for going around NetEase's OpenAPI (which requires per-AppId device
  *  registration plus user OAuth even for read-only metadata). */
 export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields> {
@@ -225,7 +225,7 @@ export async function fetchQqMusicTrack(songIdOrMid: string): Promise<UpstreamFi
 
 /** Fetch QQ Music lyrics by songmid. The fcg lyric endpoint returns LRC-
  *  formatted text (`[mm:ss.xx]line`) plus an optional translation block.
- *  Parsing mirrors fetchLyricViaWeapi in neteaseWeapi.ts — strip time
+ *  Parsing mirrors fetchLyricViaWeapi in netease.ts — strip time
  *  tags + LRC metadata, drop credit lines. Returns null on any failure
  *  so the caller can fall through to the AI source. */
 export async function fetchQqLyrics(songMid: string): Promise<string[] | null> {

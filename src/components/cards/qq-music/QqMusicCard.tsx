@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import styles from './QqMusicCard.module.css';
-import { qqMusicLockup } from '../assets/icons';
+import { qqMusicLockup } from '@/assets/icons';
 
 type Props = {
   title: string;

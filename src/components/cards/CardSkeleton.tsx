@@ -1,4 +1,4 @@
-import type { Platform } from '../lib/musicUrl';
+import type { Platform } from '@/lib/music/url';
 import styles from './CardSkeleton.module.css';
 
 type Props = {

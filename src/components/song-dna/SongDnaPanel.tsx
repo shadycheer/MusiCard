@@ -6,12 +6,12 @@ import ReactMarkdown from 'react-markdown';
 import type {
   SongDnaFound,
   SongDnaLoadingPhase,
-} from '@/lib/songDnaTypes';
-import type { DNAHelixPhase } from './DNAHelix';
+} from '@/lib/song-dna/types';
+import type { DnaHelixPhase } from './DnaHelix';
 import SongDnaDoneBadge from './SongDnaDoneBadge';
-import styles from './SongDNAPanel.module.css';
+import styles from './SongDnaPanel.module.css';
 
-const DNAHelix = dynamic(() => import('./DNAHelix'), { ssr: false });
+const DnaHelix = dynamic(() => import('./DnaHelix'), { ssr: false });
 
 /* Helix stays at full size for all three phases (drift → spinner →
    checkmark). The button click triggers the loading request after a
@@ -22,7 +22,7 @@ export const HERO_LAUNCH_DELAY_MS = 380;
    a tight box for the new compact spinner (radius 1.45 ≈ 80px). */
 export const HELIX_HEIGHT_PX = 180;
 
-export type SongDNAState =
+export type SongDnaState =
   | { kind: 'idle' }
   | {
       kind: 'loading';
@@ -40,7 +40,7 @@ export type SongDNAState =
   | { kind: 'error'; message: string };
 
 type Props = {
-  state: SongDNAState;
+  state: SongDnaState;
   onRequest: (refresh?: boolean) => void;
   /** Parent-owned migration stage. The panel reads this to know when
    *  to fade particles, show the helix-anchored SVG, and collapse the
@@ -53,7 +53,7 @@ type Props = {
   helixAnchorRef?: React.RefObject<HTMLDivElement | null>;
 };
 
-export default function SongDNAPanel({
+export default function SongDnaPanel({
   state,
   onRequest,
   badgeStage,
@@ -103,7 +103,7 @@ export default function SongDNAPanel({
        has even kicked off the request)
      - loading (incl. refresh) → spinner
      - found → checkmark */
-  const helixPhase: DNAHelixPhase =
+  const helixPhase: DnaHelixPhase =
     state.kind === 'idle' && !armed
       ? 'drift'
       : state.kind === 'found'
@@ -136,7 +136,7 @@ export default function SongDNAPanel({
         style={{ height: helixHeight }}
       >
         <div className={styles.helixCanvasLayer} style={{ opacity: helixOpacity }}>
-          <DNAHelix phase={helixPhase} />
+          <DnaHelix phase={helixPhase} />
         </div>
 
         {state.kind === 'idle' && (

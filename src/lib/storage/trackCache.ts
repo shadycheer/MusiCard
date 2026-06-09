@@ -1,4 +1,4 @@
-import type { Track } from './songlink';
+import type { Track } from '@/lib/music/songlink';
 
 const PREFIX = 'music-card:';
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;

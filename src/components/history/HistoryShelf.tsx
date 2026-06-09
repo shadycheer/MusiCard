@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Track } from '@/lib/songlink';
-import { proxyCoverUrl } from '@/lib/coverProxy';
+import type { Track } from '@/lib/music/songlink';
+import { proxyCoverUrl } from '@/lib/card/coverProxy';
 import styles from './HistoryShelf.module.css';
 
 type Props = {

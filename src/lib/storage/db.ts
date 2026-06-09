@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
-import type { Platform } from './musicUrl';
-import type { SongDnaPayload } from './songDnaTypes';
+import type { Platform } from '@/lib/music/url';
+import type { SongDnaPayload } from '@/lib/song-dna/types';
 
 // All helpers fail open: missing DATABASE_URL or query errors return null/skip.
 // The app degrades to direct upstream calls, never crashes on DB issues.

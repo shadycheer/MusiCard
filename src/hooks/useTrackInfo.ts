@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { parseMusicUrl } from '../lib/musicUrl';
-import type { Platform } from '../lib/musicUrl';
-import { fetchTrack, type Track } from '../lib/songlink';
+import { parseMusicUrl } from '@/lib/music/url';
+import type { Platform } from '@/lib/music/url';
+import { fetchTrack, type Track } from '@/lib/music/songlink';
 
 export type FetchState =
   | { kind: 'idle' }

@@ -1,5 +1,5 @@
-import { spotifyLockup, appleMusicLockup, qqMusicLockup } from '../assets/icons';
-import type { Platform } from './musicUrl';
+import { spotifyLockup, appleMusicLockup, qqMusicLockup } from '@/assets/icons';
+import type { Platform } from '@/lib/music/url';
 import { extractCoverPalette, darken } from './colorExtraction';
 
 const BASE_W = 320;

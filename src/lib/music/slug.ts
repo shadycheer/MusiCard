@@ -1,4 +1,4 @@
-import type { Platform, ParseResult } from './musicUrl';
+import type { Platform, ParseResult } from './url';
 import type { Track } from './songlink';
 
 /* URL-slug encoding of a track identity.

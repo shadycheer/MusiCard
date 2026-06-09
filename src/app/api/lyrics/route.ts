@@ -4,9 +4,9 @@ import {
   setCachedLyrics,
   lyricsCacheKey,
   type LyricsSource,
-} from '@/lib/db';
-import { fetchLyricViaWeapi } from '@/lib/neteaseWeapi';
-import { fetchQqLyrics } from '@/lib/upstream';
+} from '@/lib/storage/db';
+import { fetchLyricViaWeapi } from '@/lib/music/netease';
+import { fetchQqLyrics } from '@/lib/music/upstream';
 
 const LRCLIB_ENDPOINT = 'https://lrclib.net/api/get';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';

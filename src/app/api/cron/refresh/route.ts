@@ -4,12 +4,12 @@ import {
   updateCachedTrack,
   type CachedTrack,
   type RefreshCandidate,
-} from '@/lib/db';
+} from '@/lib/storage/db';
 import {
   fetchSpotifyTrack,
   fetchAppleMusicTrack,
   bucketToHeader,
-} from '@/lib/upstream';
+} from '@/lib/music/upstream';
 
 const BATCH_LIMIT = 50;
 

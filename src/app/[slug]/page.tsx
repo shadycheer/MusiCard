@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import SongView from '@/components/SongView';
-import { parseSlug } from '@/lib/slug';
+import { parseSlug } from '@/lib/music/slug';
 
 /* Per-song route. Slug shapes:
      /spotify-{22charId}

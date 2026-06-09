@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export type DNAHelixPhase = 'drift' | 'spinner' | 'checkmark';
+export type DnaHelixPhase = 'drift' | 'spinner' | 'checkmark';
 
 type Props = {
   /** drift = loose particle cloud (idle hero, freeform motion).
@@ -13,7 +13,7 @@ type Props = {
    *  checkmark = sphere collapses (Z → 0) into a filled green disc
    *  with a bright ✓ stroke on top — designed to match the SVG
    *  badge that cross-fades over the helix center at completion. */
-  phase?: DNAHelixPhase;
+  phase?: DnaHelixPhase;
 };
 
 /* 250 total: 200 for the disc fill + 50 for the ✓ stroke. During
@@ -101,7 +101,7 @@ function buildCheckmarkTargets(): Float32Array {
   return out;
 }
 
-export default function DNAHelix({ phase = 'drift' }: Props) {
+export default function DnaHelix({ phase = 'drift' }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const phaseRef = useRef(phase);
 

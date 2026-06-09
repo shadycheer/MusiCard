@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCachedTrack, setCachedTrack, type CachedTrack } from '@/lib/db';
-import { fetchQqMusicTrack } from '@/lib/upstream';
+import { getCachedTrack, setCachedTrack, type CachedTrack } from '@/lib/storage/db';
+import { fetchQqMusicTrack } from '@/lib/music/upstream';
 
 export async function GET(request: NextRequest) {
   const trackId = request.nextUrl.searchParams.get('id');

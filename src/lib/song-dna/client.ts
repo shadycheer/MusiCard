@@ -1,4 +1,4 @@
-import type { SongDnaStreamEvent } from './songDnaTypes';
+import type { SongDnaStreamEvent } from './types';
 
 /* Consumes the /api/song-dna SSE stream, invoking onEvent for each
    parsed event. Resolves when the stream closes; rejects on network

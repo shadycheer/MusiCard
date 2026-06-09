@@ -1,9 +1,9 @@
 import { forwardRef } from 'react';
-import SpotifyCard from './SpotifyCard';
-import AppleMusicCard from './AppleMusicCard';
-import NeteaseCard from './NeteaseCard';
-import QqMusicCard from './QqMusicCard';
-import type { Platform } from '../lib/musicUrl';
+import SpotifyCard from './spotify/SpotifyCard';
+import AppleMusicCard from './apple-music/AppleMusicCard';
+import NeteaseCard from './netease/NeteaseCard';
+import QqMusicCard from './qq-music/QqMusicCard';
+import type { Platform } from '@/lib/music/url';
 
 type Props = {
   title: string;

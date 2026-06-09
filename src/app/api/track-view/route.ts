@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
-import { recordView, recordExport } from '@/lib/db';
+import { recordView, recordExport } from '@/lib/storage/db';
 
 export async function POST(request: NextRequest) {
   let body: { type?: string };

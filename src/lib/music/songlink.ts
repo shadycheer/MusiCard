@@ -1,6 +1,6 @@
-import type { Platform } from './musicUrl';
-import { fetchAppleMusicTrack } from './itunes';
-import { getCachedTrack, setCachedTrack } from './trackCache';
+import type { Platform } from './url';
+import { fetchAppleMusicTrack } from './appleMusic';
+import { getCachedTrack, setCachedTrack } from '@/lib/storage/trackCache';
 
 export type Track = {
   title: string;

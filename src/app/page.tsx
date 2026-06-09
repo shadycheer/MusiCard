@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import HistoryShelf from '@/components/HistoryShelf';
-import { parseMusicUrl, isShortLink } from '@/lib/musicUrl';
-import { buildSlug, trackToSlug } from '@/lib/slug';
-import { getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
-import type { Track } from '@/lib/songlink';
+import HistoryShelf from '@/components/history/HistoryShelf';
+import { parseMusicUrl, isShortLink } from '@/lib/music/url';
+import { buildSlug, trackToSlug } from '@/lib/music/slug';
+import { getRecentTracks, removeCachedTrack } from '@/lib/storage/trackCache';
+import type { Track } from '@/lib/music/songlink';
 import styles from './page.module.css';
 
 /* Home: input + recent-tracks shelf. Pasting a valid link doesn't

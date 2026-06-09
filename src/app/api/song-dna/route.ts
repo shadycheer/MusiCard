@@ -5,11 +5,11 @@ import {
   setCachedSongDna,
   incrementSongDnaHit,
   songDnaCacheKey,
-} from '@/lib/db';
+} from '@/lib/storage/db';
 import type {
   SongDnaPayload,
   SongDnaStreamEvent,
-} from '@/lib/songDnaTypes';
+} from '@/lib/song-dna/types';
 
 /* Undici's defaults are too tight for openrouter.ai + web_search from
    networks where the international TLS handshake or the pre-token search
