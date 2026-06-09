@@ -23,16 +23,30 @@
 
 MusiCard 把分享压成**一张图**：歌名、艺人、封面、可选歌词、扫码直达，**对方不用点任何链接**。
 
-网易云和 QQ 音乐是我用过最久的两个国内播放器，所以一起加上 —— 致敬一起陪了很多年。
+网易云和 QQ 音乐是我用过最久的两个国内播放器，所以一起加上 —— 他们一起陪了我很多年。
 
 ## 卡片
 
-<p align="center">
-  <img src="docs/assets/cards.png" width="900" alt="Spotify · Apple Music · 网易云 · QQ 音乐"/>
-</p>
-<p align="center">
-  <sub>Spotify · Apple Music · 网易云 · QQ 音乐</sub>
-</p>
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <img src="docs/assets/card-spotify.png" width="200" alt="Spotify card"/><br/>
+      <sub><b>Spotify</b></sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="docs/assets/card-apple-music.png" width="200" alt="Apple Music card"/><br/>
+      <sub><b>Apple Music</b></sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="docs/assets/card-netease.png" width="200" alt="NetEase card"/><br/>
+      <sub><b>网易云</b></sub>
+    </td>
+    <td align="center" width="25%">
+      <img src="docs/assets/card-qq-music.png" width="200" alt="QQ Music card"/><br/>
+      <sub><b>QQ 音乐</b></sub>
+    </td>
+  </tr>
+</table>
 
 ## 怎么用
 
@@ -74,25 +88,8 @@ https://y.qq.com/n/ryqq/songDetail/<songmid>
   <img src="docs/media/06-song-dna.png" width="640" alt="Song DNA expanded"/>
 </p>
 
-> 点一下让 AI 给你写这首歌的故事 —— 创作背景、方文山 vs 周杰伦自填词、MV 拍摄花絮、获奖记录，带参考资料链接。流式生成 + 落库缓存，下次秒开。
+> 点一下让 AI 给你说这首歌的故事 —— 创作背景、背后故事、获奖记录等。
 
-## 自己部署
-
-```bash
-git clone https://github.com/shadycheer/MusiCard.git
-cd MusiCard
-cp .env.local.example .env.local   # 填环境变量
-pnpm install                       # 或 npm install
-node scripts/migrate.mjs           # 初始化 Neon schema
-pnpm dev
-```
-
-环境变量：
-- `DATABASE_URL` — [Neon Postgres](https://neon.tech)（卡片 / 歌词 / Song DNA 缓存）
-- `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` — [Spotify Developer App](https://developer.spotify.com/dashboard)
-- `OPENROUTER_API_KEY` — 可选，开启 AI 歌词 + Song DNA
-
-QQ 音乐 / 网易云 / Apple Music 都直接走平台公开接口，**不需要任何 key**。
 
 ## 技术
 
