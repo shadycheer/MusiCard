@@ -27,10 +27,9 @@ const tmpDir = resolve(projectRoot, '.playwright-video');
 mkdirSync(tmpDir, { recursive: true });
 
 const VIEWPORT = { width: 1280, height: 800 };
-// 晴天 by 周杰伦 (QQ Music) — cached song-detail + cached SONG-DNA so
-// the gif lands in ~7s. Showcases the QQ Music platform which is the
-// newest addition + the brand-green card aesthetic.
-const URL_TO_PASTE = 'https://y.qq.com/n/ryqq/songDetail/0039MnYb0qxYhV';
+// Planetes by EGOIST — cached SONG-DNA + cached LRCLIB lyrics so the
+// full flow runs instantly (good for a tight GIF).
+const URL_TO_PASTE = 'https://open.spotify.com/track/1GUnIBiLhgEwSQJzGNuUrk';
 
 const browser = await chromium.launch({
   headless: true,
