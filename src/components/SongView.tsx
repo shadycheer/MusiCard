@@ -629,6 +629,7 @@ export default function SongView({ canonicalUrl }: Props) {
                   <div className={styles.headerActions}>
                     {badgeStage === 'header-docked' &&
                       songDnaState.kind === 'found' &&
+                      songDnaState.cached &&
                       songDnaState.cachedAt && (
                         <span className={styles.headerStamp}>
                           {formatCacheTime(songDnaState.cachedAt)}
@@ -637,7 +638,10 @@ export default function SongView({ canonicalUrl }: Props) {
                     <span
                       ref={headerBadgeRef}
                       className={styles.headerBadgeSlot}
-                      aria-hidden={badgeStage !== 'header-docked'}
+                      aria-hidden={
+                        badgeStage !== 'header-docked' &&
+                        !(songDnaState.kind === 'loading' && !hasSongDnaContent)
+                      }
                     >
                       {badgeStage === 'header-docked' && (
                         <button
@@ -663,6 +667,20 @@ export default function SongView({ canonicalUrl }: Props) {
                             <path d="M13.5 2.5v3h-3" />
                           </svg>
                         </button>
+                      )}
+                      {songDnaState.kind === 'loading' && !hasSongDnaContent && (
+                        <span className={styles.headerThinking} aria-label="正在生成">
+                          <svg
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            aria-hidden
+                          >
+                            <path d="M14 8a6 6 0 1 1-3-5.2" />
+                          </svg>
+                        </span>
                       )}
                     </span>
                   </div>

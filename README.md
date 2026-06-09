@@ -54,17 +54,6 @@ MusiCard 把分享压成**一张图**：歌名、艺人、封面、可选歌词�
 2. 自动取歌词，勾最多 4 句上卡
 3. 下载 1920px PNG，直接转发
 
-支持的链接格式：
-
-```
-https://open.spotify.com/track/<id>
-https://music.apple.com/.../?i=<id>
-https://music.163.com/#/song?id=<id>
-https://y.qq.com/n/ryqq/songDetail/<songmid>
-```
-
-每首歌还会拿到一个可分享的短路径，如 `/qq-0039MnYb0qxYhV` —— 浏览器后退、收藏夹都按预期工作。
-
 ## 歌词
 
 每个平台拿歌词的路径不同：

@@ -136,23 +136,34 @@ async function handleLrclibPhase(
   }
 
   try {
-    const url = `${LRCLIB_ENDPOINT}?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(LRCLIB_TIMEOUT_MS) });
+    /* LRCLIB indexes by exact track name, so "Imagine" matches but
+       "飞机场的10:30 (Live)" doesn't even though the studio version
+       is in the library as "飞机场的10:30". Try the original first,
+       then strip common version suffixes and retry. */
+    const candidates = [title, stripVersionSuffix(title)].filter(
+      (t, i, arr) => t && arr.indexOf(t) === i,
+    );
 
-    if (res.status === 404) {
-      void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
-      return NextResponse.json({ lines: null, source: 'lrclib-miss' });
-    }
-    if (!res.ok) {
-      return NextResponse.json({
-        lines: null,
-        source: 'lrclib-miss',
-        error: `LRCLIB returned ${res.status}`,
-      });
+    let raw: string | undefined;
+    for (const candidate of candidates) {
+      const url = `${LRCLIB_ENDPOINT}?track_name=${encodeURIComponent(candidate)}&artist_name=${encodeURIComponent(artist)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(LRCLIB_TIMEOUT_MS) });
+      if (res.status === 404) continue;
+      if (!res.ok) {
+        return NextResponse.json({
+          lines: null,
+          source: 'lrclib-miss',
+          error: `LRCLIB returned ${res.status}`,
+        });
+      }
+      const data = (await res.json()) as LrcLibResponse;
+      const text = data.plainLyrics?.trim();
+      if (text) {
+        raw = text;
+        break;
+      }
     }
 
-    const data = (await res.json()) as LrcLibResponse;
-    const raw = data.plainLyrics?.trim();
     if (!raw) {
       void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
       return NextResponse.json({ lines: null, source: 'lrclib-miss' });
@@ -333,6 +344,19 @@ function extractJsonObject(text: string): string {
   const last = text.lastIndexOf('}');
   if (first >= 0 && last > first) return text.slice(first, last + 1);
   return text.trim();
+}
+
+/* Strip common version markers from a track title so a "(Live)" /
+   "(Remastered 2011)" / "(Acoustic)" track can match the studio
+   version's LRCLIB entry as a fallback. Returns the cleaned title;
+   if nothing was stripped, returns the original. */
+function stripVersionSuffix(title: string): string {
+  const cleaned = title
+    .replace(/\s*[\(\[（【][^\)\]）】]*(?:Live|Remix|Remaster(?:ed)?|Acoustic|Demo|Edit|Version|Mix|Mono|Stereo|现场|原版|纯音乐)[^\)\]）】]*[\)\]）】]\s*/gi, ' ')
+    .replace(/\s+-\s+(?:Live|Remix|Remaster(?:ed)?|Acoustic|Demo|Edit|Version|Mix|Mono|Stereo)\b.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || title;
 }
 
 function parseLyricsRaw(raw: string): string[] {
