@@ -9,7 +9,7 @@ import {
 } from 'react';
 import ShareCard from '@/components/cards/ShareCard';
 import CardSkeleton from '@/components/cards/CardSkeleton';
-import LyricsPicker, { type LyricsState } from '@/components/lyrics/LyricsPicker';
+import LyricsPicker from '@/components/lyrics/LyricsPicker';
 import SongDnaPanel, {
   type SongDnaState,
   formatCacheTime,
@@ -17,11 +17,10 @@ import SongDnaPanel, {
 import SongDnaDoneBadge from '@/components/song-dna/SongDnaDoneBadge';
 import { useTrackInfo } from '@/hooks/useTrackInfo';
 import { useCardExport } from '@/hooks/useCardExport';
+import { useLyricsRace } from '@/hooks/useLyricsRace';
 import { generateQrSvg } from '@/lib/card/qr';
-import { fetchLyricsLrclib, fetchLyricsAi } from '@/lib/lyrics/lrclib';
 import { streamSongDna } from '@/lib/song-dna/client';
 import { proxyCoverUrl } from '@/lib/card/coverProxy';
-import { platforms } from '@/lib/music/platforms';
 import { recordEvent } from '@/lib/clientEvents';
 import styles from '@/app/page.module.css';
 
@@ -49,8 +48,16 @@ export default function SongView({ canonicalUrl }: Props) {
     exportCard,
     closeFallback,
   } = useCardExport();
-  const [lyricsState, setLyricsState] = useState<LyricsState>({ kind: 'idle' });
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const {
+    state: lyricsState,
+    lines: lyricLines,
+    selectedIndices,
+    selectedLines: selectedLyricLines,
+    toggleLine: toggleLyric,
+  } = useLyricsRace(
+    state.kind === 'success' ? state.track : null,
+    MAX_SELECTED_LYRICS,
+  );
   const [songDnaState, setSongDnaState] = useState<SongDnaState>({ kind: 'idle' });
   type BadgeStage = 'none' | 'helix-large' | 'migrating' | 'header-docked';
   const [badgeStage, setBadgeStage] = useState<BadgeStage>('none');
@@ -111,23 +118,6 @@ export default function SongView({ canonicalUrl }: Props) {
     };
   }, [hasSongDnaContent, isSongDnaCachedHit]);
 
-  const lyricLines = useMemo(
-    () =>
-      lyricsState.kind === 'found' && lyricsState.lines.length > 0
-        ? lyricsState.lines
-        : [],
-    [lyricsState],
-  );
-
-  const selectedLyricLines = useMemo(
-    () =>
-      [...selectedIndices]
-        .sort((a, b) => a - b)
-        .map((i) => lyricLines[i])
-        .filter((s): s is string => typeof s === 'string'),
-    [selectedIndices, lyricLines],
-  );
-
   useEffect(() => {
     if (state.kind !== 'success') {
       setQrSvg('');
@@ -143,102 +133,12 @@ export default function SongView({ canonicalUrl }: Props) {
     };
   }, [state]);
 
+  /* Track changes also reset the Song DNA stream — abort any in-flight
+     fetch and clear the panel so the new track starts from idle. */
   useEffect(() => {
     songDnaAbortRef.current?.abort();
-
-    if (state.kind !== 'success') {
-      setLyricsState({ kind: 'idle' });
-      setSelectedIndices([]);
-      setSongDnaState({ kind: 'idle' });
-      return;
-    }
-    setSelectedIndices([]);
     setSongDnaState({ kind: 'idle' });
-    setLyricsState({ kind: 'loading' });
-
-    const ctrl = new AbortController();
-    const { title, artist, platform, sourceUrl } = state.track;
-    const neteaseId =
-      platform === 'netease'
-        ? (platforms.netease.trackIdFromUrl(sourceUrl) ?? undefined)
-        : undefined;
-    const qqMid =
-      platform === 'qqMusic'
-        ? (platforms.qqMusic.trackIdFromUrl(sourceUrl) ?? undefined)
-        : undefined;
-
-    /* Race orchestration — see history at src/app/page.tsx@89fb0e1 for
-       the rationale. Both fetches start at t=0 with independent abort
-       controllers; LRCLIB always wins authoritative hits and aborts AI;
-       on lrclib-miss we await the already-in-flight AI request. */
-    const lrclibCtrl = new AbortController();
-    const aiCtrl = new AbortController();
-    ctrl.signal.addEventListener('abort', () => {
-      lrclibCtrl.abort();
-      aiCtrl.abort();
-    });
-
-    const lrclibP = fetchLyricsLrclib(title, artist, lrclibCtrl.signal, neteaseId, qqMid)
-      .catch((err) => {
-        if (lrclibCtrl.signal.aborted) return null;
-        if (err instanceof DOMException && err.name === 'AbortError') return null;
-        return null;
-      });
-    const aiP = fetchLyricsAi(title, artist, aiCtrl.signal).catch((err) => {
-      if (aiCtrl.signal.aborted) return null;
-      if (err instanceof DOMException && err.name === 'AbortError') return null;
-      return null;
-    });
-
-    (async () => {
-      const first = await lrclibP;
-      if (ctrl.signal.aborted) return;
-
-      if (first) {
-        if (
-          (first.source === 'netease' ||
-            first.source === 'qq' ||
-            first.source === 'lrclib') &&
-          first.lines &&
-          first.lines.length > 0
-        ) {
-          aiCtrl.abort();
-          setLyricsState({ kind: 'found', lines: first.lines, source: 'lrclib' });
-          return;
-        }
-        if (first.source === 'ai' && first.lines && first.lines.length > 0) {
-          aiCtrl.abort();
-          setLyricsState({ kind: 'found', lines: first.lines, source: 'ai' });
-          return;
-        }
-        if (first.source === 'ai-miss') {
-          aiCtrl.abort();
-          setLyricsState({ kind: 'not-found' });
-          return;
-        }
-      }
-
-      setLyricsState({ kind: 'ai-searching' });
-      const second = await aiP;
-      if (ctrl.signal.aborted) return;
-      if (second && second.lines && second.lines.length > 0) {
-        setLyricsState({ kind: 'found', lines: second.lines, source: 'ai' });
-      } else {
-        setLyricsState({ kind: 'not-found' });
-      }
-    })();
-
-    return () => ctrl.abort();
   }, [state]);
-
-  const toggleLyric = (idx: number) => {
-    setSelectedIndices((prev) => {
-      const at = prev.indexOf(idx);
-      if (at >= 0) return prev.filter((i) => i !== idx);
-      if (prev.length >= MAX_SELECTED_LYRICS) return [...prev.slice(1), idx];
-      return [...prev, idx];
-    });
-  };
 
   const songDnaAbortRef = useRef<AbortController | null>(null);
 
