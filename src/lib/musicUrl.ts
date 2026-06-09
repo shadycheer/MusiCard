@@ -27,17 +27,25 @@ const NETEASE_TRACK_REGEXES: RegExp[] = [
 const NETEASE_NON_TRACK_REGEX =
   /^https?:\/\/music\.163\.com\/(?:#\/)?(album|playlist|artist|mv|dj|djradio|user)(?:\/|\?)/;
 
-// QQ Music share shapes — desktop songDetail page (uses songmid), mobile
-// playsong page (i.y.qq.com from app share, uses either songmid string or
-// songid numeric depending on which share button was used). The fetcher
-// figures out which API parameter to send based on the id format.
+// QQ Music share shapes. Five known variants:
+//   - desktop songDetail:   y.qq.com/n/ryqq/songDetail/{mid}
+//   - mobile redirect:      y.qq.com/n/ryqq_v2/songDetail/{mid} (the short-
+//                           link landing target, hence the _vN suffix)
+//   - mobile playsong:      i.y.qq.com/v8/playsong.html?songmid=...
+//   - mobile playsong (id): i.y.qq.com/v8/playsong.html?songid={numeric}
+//   - new mobile pages:     i2.y.qq.com/n3/other/pages/playsong/index.html?songmid=...
+// The fetcher figures out which API parameter to send based on id format.
 const QQ_TRACK_REGEXES: RegExp[] = [
-  /^https?:\/\/y\.qq\.com\/n\/ryqq\/songDetail\/([A-Za-z0-9]+)(?:\?|$)/,
-  /^https?:\/\/i\.y\.qq\.com\/v8\/playsong\.html\?[^ ]*\bsongmid=([A-Za-z0-9]+)/,
-  /^https?:\/\/i\.y\.qq\.com\/v8\/playsong\.html\?[^ ]*\bsongid=(\d+)/,
+  /^https?:\/\/y\.qq\.com\/n\/ryqq(?:_v\d+)?\/songDetail\/([A-Za-z0-9]+)(?:[?#]|$)/,
+  /^https?:\/\/i\d*\.y\.qq\.com\/[^?]*\?[^ ]*\bsongmid=([A-Za-z0-9]+)/,
+  /^https?:\/\/i\d*\.y\.qq\.com\/[^?]*\?[^ ]*\bsongid=(\d+)/,
 ];
 const QQ_NON_TRACK_REGEX =
-  /^https?:\/\/y\.qq\.com\/n\/ryqq\/(albumDetail|playlist|playsquare|singer|mv)\//;
+  /^https?:\/\/y\.qq\.com\/n\/ryqq(?:_v\d+)?\/(albumDetail|playlist|playsquare|singer|mv)\//;
+
+// Short link emitted by QQ Music's app share button — needs a server-side
+// redirect follow to expand into a playsong / songDetail URL.
+const QQ_SHORT_LINK_REGEX = /^https?:\/\/c6?\.y\.qq\.com\/base\/fcgi-bin\/u\?/;
 
 export function parseMusicUrl(input: string): ParseResult {
   const trimmed = input.trim();
@@ -144,6 +152,11 @@ export async function resolveNeteaseShortLink(url: string): Promise<string | nul
   } catch {
     return null;
   }
+}
+
+/** Detect any short link shape we know how to expand. */
+export function isShortLink(url: string): boolean {
+  return /^https?:\/\/163cn\.tv\//.test(url) || QQ_SHORT_LINK_REGEX.test(url);
 }
 
 function parseSpotifyTrack(

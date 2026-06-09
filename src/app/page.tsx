@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import HistoryShelf from '@/components/HistoryShelf';
-import { parseMusicUrl } from '@/lib/musicUrl';
+import { parseMusicUrl, isShortLink } from '@/lib/musicUrl';
 import { buildSlug, trackToSlug } from '@/lib/slug';
 import { getRecentTracks, removeCachedTrack } from '@/lib/trackCache';
 import type { Track } from '@/lib/songlink';
@@ -30,8 +30,37 @@ export default function Page() {
       setInputError(null);
       return;
     }
-    const t = window.setTimeout(() => {
-      const parsed = parseMusicUrl(input);
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      /* QQ Music + NetEase share buttons often emit text like
+         "Title《Album》 https://c6.y.qq.com/... @QQ音乐" — pull out
+         the URL substring before parsing. */
+      const urlMatch = input.match(/https?:\/\/\S+/);
+      let candidate = (urlMatch ? urlMatch[0] : input).trim();
+      /* Trim trailing punctuation that often gets pasted alongside
+         (commas, Chinese quotes, etc.). */
+      candidate = candidate.replace(/[，。、；）】」』]+$/u, '');
+
+      /* Short links need a server-side redirect follow. We only kick
+         the round-trip when the URL matches a known short-link shape,
+         so direct pastes stay zero-latency. */
+      if (isShortLink(candidate)) {
+        try {
+          const res = await fetch(
+            `/api/resolve-link?url=${encodeURIComponent(candidate)}`,
+          );
+          if (res.ok) {
+            const data = (await res.json()) as { resolved?: string };
+            if (data.resolved) candidate = data.resolved;
+          }
+        } catch {
+          // Network blip — fall through to parse the original; it'll
+          // likely 'invalid' and surface the standard error message.
+        }
+      }
+      if (cancelled) return;
+
+      const parsed = parseMusicUrl(candidate);
       if (parsed.kind === 'invalid') {
         setInputError('请粘贴 Spotify / Apple Music / 网易云 / QQ 音乐 单曲链接');
         return;
@@ -44,7 +73,10 @@ export default function Page() {
       const slug = buildSlug(parsed.platform, parsed.externalId, parsed.country);
       router.push(`/${slug}`);
     }, 250);
-    return () => window.clearTimeout(t);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [input, router]);
 
   const handlePickRecent = useCallback(
