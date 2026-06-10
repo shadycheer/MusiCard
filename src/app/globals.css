@@ -3,21 +3,37 @@
 }
 
 :root {
-  --bg: #050507;
-  --bg-rise: #101015;
-  --surface: rgba(20, 20, 26, 0.74);
-  --surface-soft: rgba(28, 28, 36, 0.78);
-  --surface-raised: rgba(40, 40, 50, 0.82);
-  --hairline: rgba(255, 255, 255, 0.08);
-  --hairline-strong: rgba(255, 255, 255, 0.16);
+  /* Streaming-premium dark palette — near-black neutral wall, light
+     ink, cover-derived ambient glow supplies the color (see
+     AmbientGlow on home, coverBackdrop on song pages). Base ink
+     tokens equal the --on-dark-* set below; the aliases stay because
+     glass panels re-map their subtree through them (a no-op now, but
+     it keeps the panel mechanism intact if surfaces diverge again). */
+  --bg: #111114;
+  --bg-rise: #1b1b20;
+  --surface: rgba(24, 24, 30, 0.74);
+  --surface-soft: rgba(32, 32, 40, 0.78);
+  --surface-raised: rgba(46, 46, 56, 0.82);
+  --hairline: rgba(255, 255, 255, 0.09);
+  --hairline-strong: rgba(255, 255, 255, 0.18);
 
   --text: rgba(255, 255, 255, 0.94);
   --text-soft: rgba(255, 255, 255, 0.68);
-  --text-mute: rgba(255, 255, 255, 0.46);
-  --text-faint: rgba(255, 255, 255, 0.28);
+  --text-mute: rgba(255, 255, 255, 0.5);
+  --text-faint: rgba(255, 255, 255, 0.3);
 
   --accent: #ffffff;
   --accent-soft: rgba(255, 255, 255, 0.86);
+
+  --error: #ff9a9a;
+
+  --on-dark-text: rgba(255, 255, 255, 0.94);
+  --on-dark-text-soft: rgba(255, 255, 255, 0.68);
+  --on-dark-text-mute: rgba(255, 255, 255, 0.5);
+  --on-dark-text-faint: rgba(255, 255, 255, 0.3);
+  --on-dark-hairline: rgba(255, 255, 255, 0.09);
+  --on-dark-hairline-strong: rgba(255, 255, 255, 0.18);
+  --on-dark-accent: #ffffff;
 
   --font-ui-stack:
     var(--font-ui), -apple-system, BlinkMacSystemFont, 'PingFang SC',
@@ -38,32 +54,31 @@ body {
   font-feature-settings: 'cv11', 'ss01';
 }
 
+html {
+  color-scheme: dark;
+}
+
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background: var(--bg);
-}
-
-/* Hairline grid: faint texture cue, masked out near the bottom so it
-   doesn't compete with content there. The only baseline decoration on
-   idle/loading — the colorful per-track backdrop only kicks in on
-   success, see .coverBackdrop in page.module.css. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 56px 56px;
-  opacity: 0.34;
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+  /* Slight top-light so the wall reads as a lit room, not a void.
+     Fixed attachment keeps the gradient stable while scrolling. */
+  background:
+    linear-gradient(180deg, #1a1a1f 0%, var(--bg) 38%) fixed,
+    var(--bg);
 }
 
 button,
 input,
 textarea {
   font: inherit;
+}
+
+/* Kill the 300ms double-tap-zoom delay on every tap target — this is
+   a mobile-first share tool, taps should feel instant. */
+a,
+button,
+input,
+textarea {
+  touch-action: manipulation;
 }

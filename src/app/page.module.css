@@ -20,7 +20,9 @@
   background-repeat: no-repeat;
   filter: blur(72px) saturate(1.25);
   transform: scale(1.18);
-  opacity: 0.55;
+  /* 0.4 on the dark wall — at the light-page era's 0.55 the blown-up
+     cover overexposes against near-black and text loses contrast. */
+  opacity: 0.4;
   pointer-events: none;
   animation: coverFade 720ms ease-out backwards;
 }
@@ -31,7 +33,7 @@
     transform: scale(1.28);
   }
   to {
-    opacity: 0.55;
+    opacity: 0.4;
     transform: scale(1.18);
   }
 }
@@ -70,12 +72,12 @@
 }
 
 .topBarScrolled {
-  /* True frosted glass. Heavier tint (0.62) so content behind reads
-     as definitively-masked, not "see-through with a hint of darken";
-     strong blur (40px) so even sharp text becomes a soft wash. No
-     border or shadow on purpose — the blur + tint create their own
-     soft edge against scrolling content. */
-  background: rgba(14, 14, 18, 0.62);
+  /* True frosted glass, tinted to the dark wall so the bar's light
+     ink text stays readable over whatever scrolls underneath. Strong
+     blur (40px) so even sharp text becomes a soft wash. No border or
+     shadow on purpose — the blur + tint create their own soft edge
+     against scrolling content. */
+  background: rgba(17, 17, 20, 0.7);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   backdrop-filter: blur(40px) saturate(180%);
 }
@@ -126,11 +128,11 @@
   border-radius: 50%;
   background: radial-gradient(
     circle at 32% 30%,
-    #ffffff 0%,
-    rgba(255, 255, 255, 0.55) 55%,
-    rgba(255, 255, 255, 0.15) 100%
+    #6b6b75 0%,
+    #2c2c33 55%,
+    #121215 100%
   );
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
   flex: 0 0 auto;
 }
 
@@ -217,14 +219,15 @@
   height: 48px;
   padding: 0 16px;
   color: var(--text);
-  background: rgba(20, 20, 26, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
   outline: none;
   font-family: var(--font-ui-stack);
   font-size: 14px;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   transition:
     border-color 0.18s ease,
     background 0.18s ease,
@@ -236,14 +239,16 @@
 }
 
 .input:focus {
-  background: rgba(28, 28, 36, 0.72);
-  border-color: rgba(255, 255, 255, 0.34);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.36);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 0 3px rgba(255, 255, 255, 0.06);
 }
 
 .inputError {
   margin: 0;
-  color: #ff9a9a;
+  color: var(--error);
   font-family: var(--font-ui-stack);
   font-size: 12px;
   line-height: 1.5;
@@ -305,10 +310,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 20, 26, 0.6);
+  background: rgba(20, 20, 26, 0.86);
   border: 1px solid rgba(255, 100, 100, 0.22);
   border-radius: 14px;
-  color: #ff9a9a;
+  color: var(--error);
   font-size: 14px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -393,9 +398,21 @@
 }
 
 /* Glass-panel treatment — the cover-wall and per-track backdrop show
-   through, but the panel still has enough body to host dense text. */
+   through, but the panel still has enough body to host dense text.
+   The panel stays a dark surface on the light page, so it re-maps the
+   ink tokens for its whole subtree (LyricsPicker, SongDnaPanel, panel
+   header) — without this the global dark-on-light text tokens render
+   invisible against the dark glass. */
 .panel {
-  background: rgba(20, 20, 26, 0.62);
+  --text: var(--on-dark-text);
+  --text-soft: var(--on-dark-text-soft);
+  --text-mute: var(--on-dark-text-mute);
+  --text-faint: var(--on-dark-text-faint);
+  --hairline: var(--on-dark-hairline);
+  --hairline-strong: var(--on-dark-hairline-strong);
+  --accent: var(--on-dark-accent);
+
+  background: rgba(20, 20, 26, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 12px;
   overflow: hidden;
@@ -621,19 +638,19 @@
     transform 0.14s ease;
 }
 
-/* Lower-key glass pill — replaces the loud white slab that dominated the
-   card before. Picks up the cover-wall behind via backdrop-filter. */
+/* Dark frosted pill — picks up the ambient glow / cover backdrop
+   behind via backdrop-filter. */
 .primary {
   padding: 0 18px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
 
 .primary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.32);
   transform: translateY(-1px);
 }
@@ -649,7 +666,7 @@
   padding: 0 14px;
   color: var(--text);
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .secondary:hover:not(:disabled) {
@@ -659,7 +676,7 @@
 
 .errorText {
   margin: 0;
-  color: #ff9a9a;
+  color: var(--error);
   font-family: var(--font-ui-stack);
   font-size: 12px;
   line-height: 1.5;
@@ -763,5 +780,30 @@
 
   .primary {
     width: 100%;
+  }
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────── */
+
+/* Mirror of HistoryShelf's reduced-motion block. Lives AFTER the
+   responsive section because the 1024px breakpoint re-assigns
+   .previewPane's animation — order decides when specificity ties.
+   The migrating badge is pure decoration whose final position comes
+   from its animation; without it the badge would flash at the
+   viewport origin, so hide it entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .coverBackdrop,
+  .centeredCard,
+  .previewPane,
+  .panelsCol,
+  .headerRefresh,
+  .headerThinking,
+  .headerThinking svg,
+  .main[data-stage='idle'] .inputBlock {
+    animation: none;
+  }
+
+  .migratingBadge {
+    display: none;
   }
 }

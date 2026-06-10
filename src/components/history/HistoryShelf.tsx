@@ -1,9 +1,73 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import type { Track } from '@/lib/music/songlink';
 import { proxyCoverUrl } from '@/lib/card/coverProxy';
+import { extractCoverPalette } from '@/lib/card/colorExtraction';
 import styles from './HistoryShelf.module.css';
+
+/* Parse #rrggbb into channel ints. Feeds the --shadow-tint-* CSS vars
+   so each cover's drop shadow picks up its own dominant color — the
+   one trick that gives the grid "presence" without adding any frame
+   or shelf chrome. */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const m = hex.replace('#', '');
+  if (m.length !== 6) return null;
+  const r = parseInt(m.slice(0, 2), 16);
+  const g = parseInt(m.slice(2, 4), 16);
+  const b = parseInt(m.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return null;
+  return { r, g, b };
+}
+
+/* Extract the cover's dominant color from the already-rendered <img>
+   (no double-fetch, the bytes are cached). Falls back to neutral
+   black shadow if CORS/canvas/etc. blocks the read. */
+function useShadowTint() {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [tint, setTint] = useState<{ r: number; g: number; b: number } | null>(
+    null,
+  );
+
+  const extract = useCallback(() => {
+    const img = imgRef.current;
+    if (!img || img.naturalWidth === 0) return;
+    extractCoverPalette(img)
+      .then((palette) => {
+        const rgb = hexToRgb(palette.primary);
+        if (rgb) setTint(rgb);
+      })
+      .catch(() => {});
+  }, []);
+
+  /* When the image is cached, React may attach the ref AFTER the load
+     event fires — onLoad would never trigger. This catches that case. */
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) extract();
+  }, [extract]);
+
+  return { imgRef, tint, onLoad: extract };
+}
+
+function cellStyle(
+  idx: number,
+  tint: { r: number; g: number; b: number } | null,
+): CSSProperties {
+  const base: Record<string, string | number> = { '--idx': idx };
+  if (tint) {
+    base['--shadow-tint-r'] = tint.r;
+    base['--shadow-tint-g'] = tint.g;
+    base['--shadow-tint-b'] = tint.b;
+  }
+  return base as CSSProperties;
+}
 
 type Props = {
   tracks: Track[];
@@ -25,7 +89,34 @@ type ShelfEntry =
       sortKey: number;
     };
 
-const COLS = 4;
+/* Row chunking must agree with the CSS grid column count, or a row
+   wraps short on narrow viewports and the shelf hairlines land in
+   the wrong place. Keep these queries in sync with the breakpoints
+   in HistoryShelf.module.css (5 desktop / 4 ≤1024px / 3 ≤540px).
+   The shelf never SSRs (parent mounts it from a useEffect-populated
+   list), so reading matchMedia in the initializer is safe. */
+function currentShelfCols(): number {
+  if (window.matchMedia('(max-width: 540px)').matches) return 3;
+  if (window.matchMedia('(max-width: 1024px)').matches) return 4;
+  return 5;
+}
+
+function useShelfCols(): number {
+  const [cols, setCols] = useState(() =>
+    typeof window !== 'undefined' ? currentShelfCols() : 5,
+  );
+  useEffect(() => {
+    const queries = ['(max-width: 540px)', '(max-width: 1024px)'].map((q) =>
+      window.matchMedia(q),
+    );
+    const update = () => setCols(currentShelfCols());
+    for (const mq of queries) mq.addEventListener('change', update);
+    return () => {
+      for (const mq of queries) mq.removeEventListener('change', update);
+    };
+  }, []);
+  return cols;
+}
 
 /* Trim + lowercase + collapse internal whitespace. Used to build a
    cross-platform album group key — same album on Spotify and on
@@ -92,51 +183,34 @@ function groupByAlbum(tracks: Track[]): ShelfEntry[] {
   return entries.sort((a, b) => a.sortKey - b.sortKey);
 }
 
-/* Multi-row recent grid with album collapse. Same-album tracks
-   render as a single stacked card; clicking expands a popover that
-   lists the individual songs. */
-export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
-  const [openAlbumKey, setOpenAlbumKey] = useState<string | null>(null);
-  const [popoverAnchor, setPopoverAnchor] = useState<DOMRect | null>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+/* Multi-row recent grid with album collapse. Same-album tracks render
+   as a stacked card; clicking opens a centered "vinyl record" dialog
+   that lists the individual songs.
 
-  /* Close popover on outside click + ESC, and reset when the user
-     navigates away. Using a ref to the popover lets us avoid the
-     click that opens it from also being treated as outside. */
+   Previous version used an anchored popover that positioned itself
+   under the clicked card via getBoundingClientRect — at viewport
+   edges it ran off-screen and clipped its content. The centered
+   dialog sidesteps that entirely. */
+export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
+  const cols = useShelfCols();
+  const [openAlbumKey, setOpenAlbumKey] = useState<string | null>(null);
+
+  /* ESC closes the dialog. Backdrop click is handled by the backdrop
+     element's own onClick — no need for a document-wide listener. */
   useEffect(() => {
     if (!openAlbumKey) return;
-    const onClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (popoverRef.current && !popoverRef.current.contains(target)) {
-        setOpenAlbumKey(null);
-      }
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpenAlbumKey(null);
     };
-    /* Defer the click listener by one tick so the click that opened
-       the popover doesn't immediately close it. */
-    const t = window.setTimeout(() => {
-      window.addEventListener('click', onClick);
-      window.addEventListener('keydown', onKey);
-    }, 0);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener('click', onClick);
-      window.removeEventListener('keydown', onKey);
-    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [openAlbumKey]);
 
   const handleAlbumClick = useCallback(
-    (entry: Extract<ShelfEntry, { kind: 'album' }>, anchorEl: HTMLElement) => {
-      if (openAlbumKey === entry.key) {
-        setOpenAlbumKey(null);
-        return;
-      }
-      setPopoverAnchor(anchorEl.getBoundingClientRect());
-      setOpenAlbumKey(entry.key);
+    (entry: Extract<ShelfEntry, { kind: 'album' }>) => {
+      setOpenAlbumKey((prev) => (prev === entry.key ? null : entry.key));
     },
-    [openAlbumKey],
+    [],
   );
 
   const handleAlbumRemove = useCallback(
@@ -150,8 +224,8 @@ export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
 
   const entries = groupByAlbum(tracks);
   const rows: ShelfEntry[][] = [];
-  for (let i = 0; i < entries.length; i += COLS) {
-    rows.push(entries.slice(i, i + COLS));
+  for (let i = 0; i < entries.length; i += cols) {
+    rows.push(entries.slice(i, i + cols));
   }
 
   const openAlbum =
@@ -167,15 +241,20 @@ export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
       <section className={styles.shelf} aria-label="最近浏览">
         <header className={styles.shelfHead}>
           <span className={styles.shelfLabel}>最近</span>
-          <span className={styles.shelfCount}>{entries.length}</span>
+          {/* entries.length counts shelf cards (albums collapse N songs
+              into one), so the unit is 张, not 首 — a 2-song album is
+              one 张 but two 首. */}
+          <span className={styles.shelfCount}>{entries.length} 张</span>
         </header>
         {rows.map((row, rowIdx) => (
           <div className={styles.shelfRow} key={rowIdx}>
-            {row.map((entry) =>
-              entry.kind === 'single' ? (
+            {row.map((entry, colIdx) => {
+              const idx = rowIdx * cols + colIdx;
+              return entry.kind === 'single' ? (
                 <SingleCard
                   key={entry.track.sourceUrl}
                   track={entry.track}
+                  idx={idx}
                   onPick={onPick}
                   onRemove={onRemove}
                 />
@@ -183,21 +262,20 @@ export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
                 <AlbumCard
                   key={entry.key}
                   entry={entry}
+                  idx={idx}
                   open={openAlbumKey === entry.key}
                   onOpen={handleAlbumClick}
                   onRemove={handleAlbumRemove}
                 />
-              ),
-            )}
+              );
+            })}
           </div>
         ))}
       </section>
 
-      {openAlbum && popoverAnchor && (
-        <AlbumPopover
-          ref={popoverRef}
+      {openAlbum && (
+        <AlbumDialog
           entry={openAlbum}
-          anchor={popoverAnchor}
           onPick={(t) => {
             setOpenAlbumKey(null);
             onPick(t);
@@ -213,15 +291,18 @@ export default function HistoryShelf({ tracks, onPick, onRemove }: Props) {
 
 function SingleCard({
   track,
+  idx,
   onPick,
   onRemove,
 }: {
   track: Track;
+  idx: number;
   onPick: (track: Track) => void;
   onRemove: (sourceUrl: string) => void;
 }) {
+  const { imgRef, tint, onLoad } = useShadowTint();
   return (
-    <div className={styles.shelfCell}>
+    <div className={styles.shelfCell} style={cellStyle(idx, tint)}>
       <button
         type="button"
         className={styles.shelfItem}
@@ -229,6 +310,8 @@ function SingleCard({
         title={`${track.title} — ${track.artist}`}
       >
         <img
+          ref={imgRef}
+          onLoad={onLoad}
           src={proxyCoverUrl(track.coverUrl)}
           alt={track.title}
           className={styles.shelfCover}
@@ -259,24 +342,24 @@ function SingleCard({
 
 function AlbumCard({
   entry,
+  idx,
   open,
   onOpen,
   onRemove,
 }: {
   entry: Extract<ShelfEntry, { kind: 'album' }>;
+  idx: number;
   open: boolean;
-  onOpen: (
-    entry: Extract<ShelfEntry, { kind: 'album' }>,
-    anchorEl: HTMLElement,
-  ) => void;
+  onOpen: (entry: Extract<ShelfEntry, { kind: 'album' }>) => void;
   onRemove: (entry: Extract<ShelfEntry, { kind: 'album' }>) => void;
 }) {
+  const { imgRef, tint, onLoad } = useShadowTint();
   return (
-    <div className={`${styles.shelfCell} ${styles.shelfCellAlbum}`}>
+    <div className={styles.shelfCell} style={cellStyle(idx, tint)}>
       <button
         type="button"
-        className={`${styles.shelfItem} ${open ? styles.shelfItemOpen : ''}`}
-        onClick={(e) => onOpen(entry, e.currentTarget)}
+        className={styles.shelfItem}
+        onClick={() => onOpen(entry)}
         title={`${entry.albumName} — ${entry.artist} (${entry.tracks.length} 首)`}
         aria-expanded={open}
       >
@@ -286,6 +369,8 @@ function AlbumCard({
         <span className={styles.shelfStackLayer} aria-hidden />
         <span className={`${styles.shelfStackLayer} ${styles.shelfStackLayer2}`} aria-hidden />
         <img
+          ref={imgRef}
+          onLoad={onLoad}
           src={proxyCoverUrl(entry.coverUrl)}
           alt={entry.albumName}
           className={styles.shelfCover}
@@ -314,80 +399,116 @@ function AlbumCard({
   );
 }
 
-/* ─── Popover: track list of an expanded album ───────────────────── */
+/* ─── Album dialog: centered modal with a "vinyl record" centerpiece.
 
-const AlbumPopover = ({
-  ref,
+   The vinyl is CSS-drawn: concentric grooves via repeating-radial-
+   gradient, the album cover printed as the center label (the colored
+   paper disc real records have), gentle infinite spin so it reads
+   as "playing". Tracks list below.
+
+   Centered (fixed top:50%/left:50%) so it never runs off-screen,
+   unlike the previous anchored popover which could clip at viewport
+   edges. Backdrop click + ESC + × all close it. */
+
+const AlbumDialog = ({
   entry,
-  anchor,
   onPick,
   onClose,
 }: {
-  ref: React.RefObject<HTMLDivElement | null>;
   entry: Extract<ShelfEntry, { kind: 'album' }>;
-  anchor: DOMRect;
   onPick: (track: Track) => void;
   onClose: () => void;
 }) => {
-  /* Position the popover directly below the album card. If it would
-     overflow the right edge of the viewport, clamp it inward. */
-  const POPOVER_WIDTH = 280;
-  const GAP = 12;
-  const vpW = typeof window !== 'undefined' ? window.innerWidth : 1440;
-  let left = anchor.left;
-  if (left + POPOVER_WIDTH > vpW - 16) left = vpW - POPOVER_WIDTH - 16;
-  if (left < 16) left = 16;
-  const top = anchor.bottom + GAP;
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  /* Modal focus management: move focus into the dialog on open, hand
+     it back to the triggering card on close, and wrap Tab at the
+     edges so keyboard users can't wander into the dimmed page. */
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previous = document.activeElement as HTMLElement | null;
+    dialog.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusables = dialog.querySelectorAll<HTMLElement>('button');
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === dialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    dialog.addEventListener('keydown', onKey);
+    return () => {
+      dialog.removeEventListener('keydown', onKey);
+      previous?.focus();
+    };
+  }, []);
 
   return (
-    <div
-      ref={ref}
-      className={styles.albumPopover}
-      style={{
-        top: `${top}px`,
-        left: `${left}px`,
-        width: `${POPOVER_WIDTH}px`,
-      }}
-      role="dialog"
-      aria-label={`${entry.albumName} 的歌曲列表`}
-    >
-      <header className={styles.popoverHead}>
-        <div className={styles.popoverTitleBlock}>
-          <span className={styles.popoverTitle}>{entry.albumName}</span>
-          <span className={styles.popoverSubtitle}>
-            {entry.artist} · {entry.tracks.length} 首
-          </span>
+    <>
+      <div
+        className={styles.dialogBackdrop}
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        ref={dialogRef}
+        className={styles.albumDialog}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${entry.albumName} 的歌曲列表`}
+        tabIndex={-1}
+      >
+        <div className={styles.vinylStage} aria-hidden>
+          <div className={styles.vinyl}>
+            <div
+              className={styles.vinylLabel}
+              style={{
+                backgroundImage: `url(${proxyCoverUrl(entry.coverUrl)})`,
+              }}
+            />
+            <div className={styles.vinylSpindle} />
+          </div>
         </div>
-        <button
-          type="button"
-          className={styles.popoverClose}
-          onClick={onClose}
-          aria-label="关闭"
-        >
-          ×
-        </button>
-      </header>
-      <ul className={styles.popoverList}>
-        {entry.tracks.map((t) => (
-          <li key={t.sourceUrl}>
-            <button
-              type="button"
-              className={styles.popoverItem}
-              onClick={() => onPick(t)}
-            >
-              <img
-                src={proxyCoverUrl(t.coverUrl)}
-                alt=""
-                className={styles.popoverItemCover}
-                loading="lazy"
-                aria-hidden
-              />
-              <span className={styles.popoverItemTitle}>{t.title}</span>
-              <span className={styles.popoverItemPlatform}>{t.platform}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+        <header className={styles.dialogHead}>
+          <h3 className={styles.dialogTitle}>{entry.albumName}</h3>
+          <p className={styles.dialogSubtitle}>
+            {entry.artist} · {entry.tracks.length} 首
+          </p>
+          <button
+            type="button"
+            className={styles.dialogClose}
+            onClick={onClose}
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </header>
+        <ul className={styles.trackList}>
+          {entry.tracks.map((t, i) => (
+            <li key={t.sourceUrl}>
+              <button
+                type="button"
+                className={styles.trackItem}
+                onClick={() => onPick(t)}
+              >
+                <span className={styles.trackIndex}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className={styles.trackName}>{t.title}</span>
+                <span className={styles.trackPlatform}>{t.platform}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
   );
 };

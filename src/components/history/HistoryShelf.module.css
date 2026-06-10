@@ -12,8 +12,8 @@
 
 .shelf {
   width: 100%;
-  max-width: 640px;
-  margin: 36px auto 0;
+  max-width: 960px;
+  margin: 44px auto 0;
   padding: 0 4px;
   animation: shelfFadeIn 520ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
 }
@@ -29,30 +29,30 @@
   }
 }
 
+/* Streaming-app section header: bold title left, count right, no
+   rule line — the row hairlines below carry the shelf structure. */
 .shelfHead {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 0 6px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 0 6px;
 }
 
 .shelfLabel {
-  color: var(--text-mute);
+  color: var(--text);
   font-family: var(--font-ui-stack);
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .shelfCount {
   color: var(--text-mute);
   font-family: var(--font-mono-stack);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 /* One row per up-to-4 entries. The row carries a soft hairline at
@@ -60,11 +60,15 @@
    shelf rule rather than wood paneling. */
 .shelfRow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px 16px;
-  padding: 4px 4px 16px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  /* 12px top clears the album-stack slivers that overflow upward;
+     tighter bottom run (12+12 vs the old 16+16) keeps vertical
+     rhythm closer to the 16px column gap so rows read as one grid,
+     not floating strips. */
+  padding: 12px 4px 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .shelfRow:last-child {
@@ -75,49 +79,51 @@
 .shelfCell {
   position: relative;
   min-width: 0;
+  /* CSS vars set inline by JSX:
+       --idx           — stagger position (0-based across all cells)
+       --shadow-tint-r/g/b  — extracted dominant color (defaults to neutral
+                              when palette extraction hasn't completed) */
+  animation: shelfItemIn 420ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  animation-delay: calc(var(--idx, 0) * 55ms + 60ms);
 }
 
-/* Album cells get extra top + right padding so the stacked pseudo-
-   covers behind don't visually crowd the row neighbour. */
-.shelfCellAlbum {
-  padding-top: 4px;
-  padding-right: 4px;
+@keyframes shelfItemIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-/* Two layered shadows behind the real cover sell "collection of
-   discs in a sleeve". Each layer is offset 3px right/down and
-   ~12% darker to fake depth. Only mounted on AlbumCard. */
+/* Album stack — two sleeve slivers peeking out ABOVE the cover,
+   centered and progressively narrower (the macOS-stack idiom).
+   An earlier pass offset the layers right/down instead; the few-px
+   dark edge on one side read as a rendering glitch on the light
+   page, not as "a stack of records". Symmetric top peeks are
+   unambiguous. They overflow the cell upward on purpose — the cover
+   itself stays exactly grid-aligned with single-track neighbours. */
 .shelfStackLayer {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  right: -4px;
-  bottom: 0;
+  top: -5px;
+  left: 4%;
+  right: 4%;
   aspect-ratio: 1 / 1;
   border-radius: 6px;
-  background: rgba(40, 40, 48, 0.6);
-  box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.04),
-    0 4px 10px rgba(0, 0, 0, 0.5);
+  background: #41414c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   pointer-events: none;
   z-index: -1;
 }
 
 .shelfStackLayer2 {
-  top: 7px;
-  left: 7px;
-  right: -7px;
-  background: rgba(30, 30, 36, 0.55);
+  top: -10px;
+  left: 8%;
+  right: 8%;
+  background: #2e2e37;
   z-index: -2;
-}
-
-/* When an album card is open, give it a subtle "lifted/selected"
-   indication that ties it to its popover. */
-.shelfItemOpen .shelfCover {
-  box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.22),
-    0 14px 26px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .shelfItem {
@@ -130,11 +136,11 @@
   cursor: pointer;
   text-align: left;
   min-width: 0;
-  transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .shelfItem:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px) scale(1.04);
 }
 
 .shelfCover {
@@ -149,18 +155,29 @@
   display: block;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.04);
+  /* Drop shadow uses the cover's own dominant color (extracted via
+     colorExtraction.ts and exposed as --shadow-tint-*). Falls back to
+     opaque-black tint values (0,0,0) before extraction completes — so
+     the shadow is neutral while loading, then gently picks up the
+     album color once the image renders. */
+  /* The 1px ring keeps near-black covers from melting into the dark
+     wall. The tinted drop shadow reads as a colored glow here — the
+     dark base turns the old "shadow" mechanism into Apple-Music-style
+     ambient lighting for free. */
   box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
     inset 1px 0 0 rgba(255, 255, 255, 0.08),
-    0 6px 14px rgba(0, 0, 0, 0.5),
-    0 1px 2px rgba(0, 0, 0, 0.6);
-  transition: box-shadow 0.22s ease;
+    0 10px 22px rgba(var(--shadow-tint-r, 0), var(--shadow-tint-g, 0), var(--shadow-tint-b, 0), 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.55);
+  transition: box-shadow 280ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .shelfItem:hover .shelfCover {
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.14),
-    0 12px 22px rgba(0, 0, 0, 0.6),
-    0 2px 4px rgba(0, 0, 0, 0.7);
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    0 20px 34px rgba(var(--shadow-tint-r, 0), var(--shadow-tint-g, 0), var(--shadow-tint-b, 0), 0.6),
+    0 6px 10px rgba(0, 0, 0, 0.65);
 }
 
 .shelfMeta {
@@ -174,7 +191,7 @@
 .shelfTitle {
   color: var(--text);
   font-family: var(--font-ui-stack);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
   overflow: hidden;
@@ -185,7 +202,7 @@
 .shelfArtist {
   color: var(--text-mute);
   font-family: var(--font-ui-stack);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -193,41 +210,73 @@
   opacity: 0.7;
 }
 
+/* Frosted circle INSIDE the cover's top-right corner. The old version
+   floated half-outside the card edge and popped in with a scale —
+   it read as a foreign artifact. Inside + fade-only keeps it part of
+   the cover's surface, the way streaming apps overlay controls on
+   artwork. */
 .shelfRemove {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 18px;
-  height: 18px;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  color: var(--text);
-  background: rgba(0, 0, 0, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(20, 20, 24, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
-  transform: scale(0.85);
   transition:
-    opacity 0.14s ease,
-    transform 0.14s ease,
-    background 0.14s ease,
-    border-color 0.14s ease;
+    opacity 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
   z-index: 2;
 }
 
-.shelfCell:hover .shelfRemove {
+/* Reveal on keyboard focus too — hover-only would leave Tab users
+   pressing an invisible button. */
+.shelfCell:hover .shelfRemove,
+.shelfRemove:focus-visible {
   opacity: 1;
-  transform: scale(1);
 }
 
 .shelfRemove:hover {
-  background: rgba(0, 0, 0, 0.95);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(20, 20, 24, 0.9);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+/* Motion-sensitive users get the static grid — no stagger, no hover
+   lift/scale, no shadow transition. */
+@media (prefers-reduced-motion: reduce) {
+  .shelf,
+  .shelfCell {
+    animation: none;
+  }
+  .shelfItem,
+  .shelfCover {
+    transition: none;
+  }
+  .shelfItem:hover {
+    transform: none;
+  }
+}
+
+/* Column counts must stay in sync with useShelfCols() in
+   HistoryShelf.tsx — JSX chunks entries into rows by the same
+   breakpoints. */
+@media (max-width: 1024px) {
+  .shelfRow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 540px) {
@@ -240,59 +289,173 @@
   }
 }
 
-/* ─── Album popover ──────────────────────────────────────────────── */
+/* ─── Album dialog (centered vinyl-record modal) ─────────────────── */
 
-/* Fixed-position floater anchored under the clicked album card —
-   coords come from a getBoundingClientRect snapshot taken on open,
-   so scroll/resize after open won't reposition (we close on outside-
-   click anyway, so this isn't worth solving). */
-.albumPopover {
+/* Dim everything behind the dialog. Click anywhere on the backdrop
+   to close. The blur is mild so user can still see what shelf they
+   came from peripherally. */
+.dialogBackdrop {
   position: fixed;
-  z-index: 30;
-  background: rgba(18, 18, 22, 0.92);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.6),
-    0 4px 12px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  transform-origin: top left;
-  animation: popoverIn 220ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  inset: 0;
+  z-index: 28;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  animation: backdropIn 220ms ease backwards;
 }
 
-@keyframes popoverIn {
+@keyframes backdropIn {
   from {
     opacity: 0;
-    transform: scale(0.94) translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
-.popoverHead {
+/* The dialog itself — fixed center, 340px wide, max-height capped so
+   long track lists scroll inside rather than blowing past the viewport.
+   Centered via top/left:50% + translate so no positioning math can
+   put it off-screen the way the old anchored popover could. */
+.albumDialog {
+  /* Dark surface on the light page — re-map the ink tokens so the
+     subtree (title, tracklist, close button) keeps light text. */
+  --text: var(--on-dark-text);
+  --text-soft: var(--on-dark-text-soft);
+  --text-mute: var(--on-dark-text-mute);
+  --text-faint: var(--on-dark-text-faint);
+  --hairline: var(--on-dark-hairline);
+  --hairline-strong: var(--on-dark-hairline-strong);
+  --accent: var(--on-dark-accent);
+
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 14px 14px 10px;
+  flex-direction: column;
+  background: rgba(18, 18, 22, 0.96);
+  backdrop-filter: blur(32px) saturate(160%);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 32px 64px rgba(0, 0, 0, 0.65),
+    0 8px 20px rgba(0, 0, 0, 0.4);
+  animation: dialogIn 320ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Stage that frames the vinyl. Top-lit radial highlight sells "this
+   is a thing under a spotlight". */
+.vinylStage {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0 20px;
+  background:
+    radial-gradient(
+      ellipse at 50% 30%,
+      rgba(255, 255, 255, 0.05),
+      transparent 60%
+    );
+}
+
+/* The vinyl itself — concentric grooves (3px period) + dark radial body
+   + cover image as the colored paper label at the center. The disc
+   itself stays static (grooves are radially symmetric, and animating
+   it would make its drop shadow orbit with the transform); the spin
+   lives on the label, which is the only part where rotation reads. */
+.vinyl {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      transparent 0,
+      transparent 2px,
+      rgba(255, 255, 255, 0.04) 2px,
+      rgba(255, 255, 255, 0.04) 3px
+    ),
+    radial-gradient(circle at center, #1c1c1c 0%, #050505 78%, #0a0a0a 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 14px 32px rgba(0, 0, 0, 0.65),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes vinylLabelSpin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Cover printed as the center label — the colored paper disc real
+   records have. 38% diameter so the surrounding black vinyl reads
+   as more than a frame. Spins slowly so it reads as "playing". */
+.vinylLabel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38%;
+  height: 38%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background-size: cover;
+  background-position: center;
+  background-color: #2a2a2a;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 0 0 2px rgba(0, 0, 0, 0.4),
+    inset 0 0 8px rgba(0, 0, 0, 0.3);
+  animation: vinylLabelSpin 18s linear infinite;
+}
+
+/* The center spindle hole + ring detail. Drawn as two stacked dots
+   to suggest "the bit at the very center". */
+.vinylSpindle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6%;
+  height: 6%;
+  border-radius: 50%;
+  background: #050505;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* Header below the vinyl — album name + meta + close button. */
+.dialogHead {
+  position: relative;
+  padding: 16px 52px 14px 22px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.popoverTitleBlock {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.popoverTitle {
+.dialogTitle {
+  margin: 0 0 3px;
   color: var(--text);
   font-family: var(--font-ui-stack);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 650;
   line-height: 1.3;
   overflow: hidden;
@@ -300,17 +463,20 @@
   white-space: nowrap;
 }
 
-.popoverSubtitle {
+.dialogSubtitle {
+  margin: 0;
   color: var(--text-mute);
   font-family: var(--font-ui-stack);
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 12px;
+  opacity: 0.72;
 }
 
-.popoverClose {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+.dialogClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -328,50 +494,56 @@
     background 0.14s ease;
 }
 
-.popoverClose:hover {
+.dialogClose:hover {
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.36);
   background: rgba(255, 255, 255, 0.06);
 }
 
-.popoverList {
+/* Tracklist — styled like the back of a vinyl sleeve: numbered tracks,
+   mono index, generous line height. */
+.trackList {
   list-style: none;
-  padding: 6px 0;
+  padding: 8px 0 14px;
   margin: 0;
-  max-height: 320px;
   overflow-y: auto;
+  /* Keep wheel/touch momentum inside the dialog — without this a
+     long tracklist hands its overscroll to the page behind. */
+  overscroll-behavior: contain;
+  flex: 1;
 }
 
-.popoverItem {
+.trackItem {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: 100%;
-  padding: 8px 14px;
+  padding: 10px 22px;
   background: transparent;
   border: none;
   color: var(--text);
   font-family: var(--font-ui-stack);
-  font-size: 12.5px;
+  font-size: 13px;
   cursor: pointer;
   text-align: left;
   transition: background 0.14s ease;
 }
 
-.popoverItem:hover {
-  background: rgba(255, 255, 255, 0.06);
+.trackItem:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.popoverItemCover {
+.trackIndex {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  border-radius: 3px;
-  object-fit: cover;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  width: 18px;
+  color: var(--text-mute);
+  font-family: var(--font-mono-stack);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
 }
 
-.popoverItemTitle {
+.trackName {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -379,12 +551,22 @@
   white-space: nowrap;
 }
 
-.popoverItemPlatform {
+.trackPlatform {
   flex: 0 0 auto;
   font-family: var(--font-mono-stack);
   font-size: 9.5px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-mute);
-  opacity: 0.6;
+  opacity: 0.55;
+}
+
+/* Motion-sensitive users get a static vinyl (no spin) and instant
+   dialog mount. */
+@media (prefers-reduced-motion: reduce) {
+  .vinylLabel,
+  .albumDialog,
+  .dialogBackdrop {
+    animation: none;
+  }
 }

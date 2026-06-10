@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Manrope, Inter, Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -33,6 +33,12 @@ const geistMono = Geist_Mono({
   variable: '--font-mono',
   display: 'swap',
 });
+
+/* Matches --bg so the mobile browser chrome blends into the dark
+   wall instead of sitting as a light strip above it. */
+export const viewport: Viewport = {
+  themeColor: '#111114',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://ohmydna.com'),
