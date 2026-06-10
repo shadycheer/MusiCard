@@ -63,17 +63,53 @@ export function removeCachedTrack(sourceUrl: string): void {
   }
 }
 
-/* "Recent" view derived directly from the cache. No separate history
-   storage — the cache already records "this URL was visited at cachedAt",
-   so we just scan + sort + drop-expired. Opportunistically GCs:
-   - expired entries (cachedAt past TTL)
-   - duplicate entries pointing to the same track.sourceUrl (different
-     cache key, same actual song — see removeCachedTrack for why) */
-export function getRecentTracks(limit = 9): Track[] {
-  if (typeof window === 'undefined') return [];
-  const now = Date.now();
-  const collected: { track: Track; cachedAt: number; key: string }[] = [];
+/* ─── Visit history ───────────────────────────────────────────────────
+
+   The shelf used to be derived from the API cache above, which made
+   the cache's 7-day TTL silently evict shelf entries. History is its
+   own permanent store now: the cache answers "do we have fresh track
+   data", history answers "what has this person listened to". Keyed
+   OUTSIDE the cache PREFIX namespace so cache scans never touch it. */
+
+const HISTORY_KEY = 'music-card-history:v1';
+
+type HistoryEntry = { track: Track; visitedAt: number };
+
+function readHistory(): HistoryEntry[] {
   try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw) as HistoryEntry[];
+    if (!Array.isArray(list)) return [];
+    return list.filter(
+      (e) =>
+        e &&
+        typeof e.visitedAt === 'number' &&
+        e.track &&
+        typeof e.track.title === 'string' &&
+        typeof e.track.sourceUrl === 'string',
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeHistory(list: HistoryEntry[]): void {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+  } catch {
+    // quota / private mode — history just doesn't persist
+  }
+}
+
+/* One-time migration: before HISTORY_KEY existed, the cache WAS the
+   history. Seed from whatever cache entries are still alive so the
+   shelf doesn't blank out on deploy. Runs at most once — after this
+   the key exists (even as just []). */
+function migrateHistoryFromCache(): void {
+  try {
+    if (localStorage.getItem(HISTORY_KEY) !== null) return;
+    const seeded = new Map<string, HistoryEntry>();
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith(PREFIX)) continue;
@@ -84,45 +120,48 @@ export function getRecentTracks(limit = 9): Track[] {
         if (
           !entry ||
           typeof entry.cachedAt !== 'number' ||
-          !entry.track ||
-          typeof entry.track.title !== 'string' ||
-          typeof entry.track.sourceUrl !== 'string'
+          typeof entry.track?.sourceUrl !== 'string'
         ) {
           continue;
         }
-        if (now - entry.cachedAt > TTL_MS) {
-          localStorage.removeItem(key);
-          continue;
+        const existing = seeded.get(entry.track.sourceUrl);
+        if (!existing || entry.cachedAt > existing.visitedAt) {
+          seeded.set(entry.track.sourceUrl, {
+            track: entry.track,
+            visitedAt: entry.cachedAt,
+          });
         }
-        collected.push({ track: entry.track, cachedAt: entry.cachedAt, key });
       } catch {
         // malformed entry — skip silently
       }
     }
+    const list = [...seeded.values()].sort((a, b) => b.visitedAt - a.visitedAt);
+    writeHistory(list);
   } catch {
-    return [];
+    // private mode — skip
   }
+}
 
-  /* Dedupe by track.sourceUrl (the server-canonical URL). When the
-     same song was cached under two different request URLs — e.g., a
-     QQ songid paste and a QQ mid paste resolving to the same song —
-     keep the newest entry and GC the rest. */
-  const bestBySourceUrl = new Map<string, typeof collected[number]>();
-  for (const c of collected) {
-    const existing = bestBySourceUrl.get(c.track.sourceUrl);
-    if (!existing) {
-      bestBySourceUrl.set(c.track.sourceUrl, c);
-      continue;
-    }
-    if (c.cachedAt > existing.cachedAt) {
-      try { localStorage.removeItem(existing.key); } catch { /* ignore */ }
-      bestBySourceUrl.set(c.track.sourceUrl, c);
-    } else {
-      try { localStorage.removeItem(c.key); } catch { /* ignore */ }
-    }
-  }
+/* Upsert keyed by sourceUrl (server-canonical, so QQ's songid/mid
+   dual-URL problem dedupes here for free). Newest first. */
+export function recordHistory(track: Track): void {
+  if (typeof window === 'undefined') return;
+  migrateHistoryFromCache();
+  const rest = readHistory().filter(
+    (e) => e.track.sourceUrl !== track.sourceUrl,
+  );
+  writeHistory([{ track, visitedAt: Date.now() }, ...rest]);
+}
 
-  const deduped = [...bestBySourceUrl.values()];
-  deduped.sort((a, b) => b.cachedAt - a.cachedAt);
-  return deduped.slice(0, limit).map((e) => e.track);
+/* Full history, newest first. No TTL, no cap — removal is the only
+   way an entry leaves the shelf. */
+export function getHistoryTracks(): Track[] {
+  if (typeof window === 'undefined') return [];
+  migrateHistoryFromCache();
+  return readHistory().map((e) => e.track);
+}
+
+export function removeHistoryTrack(sourceUrl: string): void {
+  if (typeof window === 'undefined') return;
+  writeHistory(readHistory().filter((e) => e.track.sourceUrl !== sourceUrl));
 }

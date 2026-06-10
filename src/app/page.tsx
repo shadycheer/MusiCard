@@ -1,11 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AmbientGlow from '@/components/AmbientGlow';
 import HistoryShelf from '@/components/history/HistoryShelf';
 import { parseMusicUrl, isShortLink } from '@/lib/music/url';
 import { buildSlug, trackToSlug } from '@/lib/music/slug';
-import { getRecentTracks, removeCachedTrack } from '@/lib/storage/trackCache';
+import {
+  getHistoryTracks,
+  removeHistoryTrack,
+  removeCachedTrack,
+} from '@/lib/storage/trackCache';
 import type { Track } from '@/lib/music/songlink';
 import styles from './page.module.css';
 
@@ -20,7 +25,23 @@ export default function Page() {
 
   const [recent, setRecent] = useState<Track[]>([]);
   useEffect(() => {
-    setRecent(getRecentTracks(12));
+    setRecent(getHistoryTracks());
+  }, []);
+
+  /* Stable reference — recent only changes on mount/remove, and the
+     glow's effect keys off this array identity. */
+  const glowCovers = useMemo(() => recent.map((t) => t.coverUrl), [recent]);
+
+  /* Frost the sticky bar as soon as anything slides underneath it.
+     Lower threshold than SongView's 180px — the home shelf starts
+     much closer to the top, so covers collide with the brand text
+     after just a few px of scroll. */
+  const [pageScrolled, setPageScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setPageScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   /* Validate + navigate on input change. Debounced so a paste-and-edit
@@ -88,13 +109,19 @@ export default function Page() {
   );
 
   const handleRemoveRecent = useCallback((sourceUrl: string) => {
+    /* Drop from history (the shelf) AND scrub the cached payload —
+       "移除" means leave no trace, not just hide. */
+    removeHistoryTrack(sourceUrl);
     removeCachedTrack(sourceUrl);
-    setRecent(getRecentTracks(12));
+    setRecent(getHistoryTracks());
   }, []);
 
   return (
     <div className={styles.page}>
-      <header className={`${styles.topBar}`}>
+      <AmbientGlow coverUrls={glowCovers} />
+      <header
+        className={`${styles.topBar} ${pageScrolled ? styles.topBarScrolled : ''}`}
+      >
         <a href="/" className={styles.brand}>
           <span className={styles.brandMark} aria-hidden />
           <span className={styles.brandText}>MusiCard</span>
@@ -125,13 +152,20 @@ export default function Page() {
           </label>
           <input
             id="track-input"
+            name="track-url"
             className={styles.input}
             placeholder="粘贴 Spotify / Apple Music / 网易云 / QQ 音乐 单曲链接"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             autoFocus
+            autoComplete="off"
+            spellCheck={false}
           />
-          {inputError && <p className={styles.inputError}>{inputError}</p>}
+          {inputError && (
+            <p className={styles.inputError} role="alert">
+              {inputError}
+            </p>
+          )}
         </div>
 
         {recent.length > 0 && (

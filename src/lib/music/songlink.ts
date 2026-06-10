@@ -1,6 +1,10 @@
 import type { Platform } from './url';
 import { platforms } from './platforms';
-import { getCachedTrack, setCachedTrack } from '@/lib/storage/trackCache';
+import {
+  getCachedTrack,
+  setCachedTrack,
+  recordHistory,
+} from '@/lib/storage/trackCache';
 
 export type Track = {
   title: string;
@@ -38,7 +42,12 @@ export async function fetchTrack(
   signal?: AbortSignal,
 ): Promise<Track> {
   const cached = getCachedTrack(canonicalUrl);
-  if (cached) return cached;
+  if (cached) {
+    /* Cache hits are still visits — history must record them or
+       revisited songs never bubble back to the shelf top. */
+    recordHistory(cached);
+    return cached;
+  }
 
   const meta = platforms[platform];
   const query = meta.apiQuery(canonicalUrl);
@@ -64,5 +73,6 @@ export async function fetchTrack(
     albumName: data.albumName ?? undefined,
   };
   setCachedTrack(canonicalUrl, track);
+  recordHistory(track);
   return track;
 }
