@@ -4,19 +4,22 @@ import { platforms } from '@/lib/music/platforms';
 import type { Track } from '@/lib/music/songlink';
 import type { LyricsState } from '@/components/lyrics/LyricsPicker';
 
-/* Lyrics state machine + LRCLIB/AI race.
+/* Lyrics state machine: authoritative phase, then AI fallback.
 
-   Two providers run in parallel from t=0:
-     - LRCLIB (the "authoritative" path — community-maintained DB,
-       plus a side route through NetEase/QQ lyrics endpoints when
-       we know the track's platform id)
-     - AI (LLM with web search, the fallback for cold-tail songs)
+   STRICTLY SEQUENTIAL — the providers used to race from t=0, which
+   (a) burned an OpenRouter web-search call (~$0.05) on every song
+   even when LRCLIB hit, and (b) the late server-side AI write
+   clobbered the freshly cached lrclib lyrics, so revisits showed the
+   "AI 找回" badge on songs that had real lyrics. The server now
+   guards its cache writes too, but not starting the AI request at
+   all is the first line of defense.
 
-   LRCLIB wins any authoritative hit and aborts the AI request to save
-   tokens. On LRCLIB miss we await the already-in-flight AI fetch —
-   no second network call, just observation. Special sentinel
-   `ai-miss` from LRCLIB short-circuits to not-found (used when
-   LRCLIB's AI fallback already failed). */
+   Phase 1: LRCLIB (community DB, plus NetEase/QQ side routes when we
+   know the platform id). Any hit is terminal. Special sentinel
+   `ai-miss` short-circuits to not-found (a previous AI attempt
+   already failed and was cached).
+   Phase 2: AI with web search — fires only after an authoritative
+   miss, i.e. exactly the cold-tail it was budgeted for. */
 
 type LyricsControls = {
   state: LyricsState;
@@ -63,25 +66,14 @@ export function useLyricsRace(
       aiCtrl.abort();
     });
 
-    const lrclibP = fetchLyricsLrclib(
-      title,
-      artist,
-      lrclibCtrl.signal,
-      neteaseId,
-      qqMid,
-    ).catch((err) => {
-      if (lrclibCtrl.signal.aborted) return null;
-      if (err instanceof DOMException && err.name === 'AbortError') return null;
-      return null;
-    });
-    const aiP = fetchLyricsAi(title, artist, aiCtrl.signal).catch((err) => {
-      if (aiCtrl.signal.aborted) return null;
-      if (err instanceof DOMException && err.name === 'AbortError') return null;
-      return null;
-    });
-
     (async () => {
-      const first = await lrclibP;
+      const first = await fetchLyricsLrclib(
+        title,
+        artist,
+        lrclibCtrl.signal,
+        neteaseId,
+        qqMid,
+      ).catch(() => null);
       if (ctrl.signal.aborted) return;
 
       if (first) {
@@ -92,27 +84,32 @@ export function useLyricsRace(
           first.lines &&
           first.lines.length > 0
         ) {
-          aiCtrl.abort();
           setState({ kind: 'found', lines: first.lines, source: 'lrclib' });
           return;
         }
         if (first.source === 'ai' && first.lines && first.lines.length > 0) {
-          aiCtrl.abort();
           setState({ kind: 'found', lines: first.lines, source: 'ai' });
           return;
         }
         if (first.source === 'ai-miss') {
-          aiCtrl.abort();
           setState({ kind: 'not-found' });
           return;
         }
       }
 
       setState({ kind: 'ai-searching' });
-      const second = await aiP;
+      const second = await fetchLyricsAi(title, artist, aiCtrl.signal).catch(
+        () => null,
+      );
       if (ctrl.signal.aborted) return;
       if (second && second.lines && second.lines.length > 0) {
-        setState({ kind: 'found', lines: second.lines, source: 'ai' });
+        /* phase=ai can answer from cache with an authoritative source
+           that landed meanwhile (e.g. another tab) — label honestly. */
+        setState({
+          kind: 'found',
+          lines: second.lines,
+          source: second.source === 'ai' ? 'ai' : 'lrclib',
+        });
       } else {
         setState({ kind: 'not-found' });
       }

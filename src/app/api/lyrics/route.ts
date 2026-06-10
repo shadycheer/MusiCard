@@ -187,13 +187,17 @@ async function handleAiPhase(
   artist: string,
   cached: { lines: string[]; source: LyricsSource } | null,
 ): Promise<NextResponse<LyricsPayload | { error: string }>> {
-  // If something already cached an AI verdict between LRCLIB call and now,
-  // honor it instead of paying for another LLM call.
-  if (cached?.source === 'ai') {
-    return NextResponse.json({ lines: cached.lines, source: 'ai' });
-  }
-  if (cached?.source === 'ai-miss') {
-    return NextResponse.json({ lines: null, source: 'ai-miss' });
+  /* ANY terminal verdict that landed since the client kicked this phase
+     wins — including authoritative lrclib/netease/qq hits. The old code
+     only short-circuited on ai/ai-miss, so an AI phase racing a
+     successful LRCLIB phase would run the LLM anyway and overwrite the
+     real lyrics with AI ones (the "song flips to AI badge on revisit"
+     bug). 'lrclib-miss' is the only non-terminal state. */
+  if (cached && cached.source !== 'lrclib-miss') {
+    if (cached.source === 'ai-miss') {
+      return NextResponse.json({ lines: null, source: 'ai-miss' });
+    }
+    return NextResponse.json({ lines: cached.lines, source: cached.source });
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -276,7 +280,7 @@ async function handleAiPhase(
     }
 
     if (!parsed.hasLyrics || !Array.isArray(parsed.lines) || parsed.lines.length === 0) {
-      void setCachedLyrics(cacheKey, title, artist, [], 'ai-miss');
+      await cacheAiOutcome(cacheKey, title, artist, [], 'ai-miss');
       return NextResponse.json({ lines: null, source: 'ai-miss' });
     }
 
@@ -285,11 +289,11 @@ async function handleAiPhase(
       .filter((l) => l.length > 0);
 
     if (lines.length === 0) {
-      void setCachedLyrics(cacheKey, title, artist, [], 'ai-miss');
+      await cacheAiOutcome(cacheKey, title, artist, [], 'ai-miss');
       return NextResponse.json({ lines: null, source: 'ai-miss' });
     }
 
-    void setCachedLyrics(cacheKey, title, artist, lines, 'ai');
+    await cacheAiOutcome(cacheKey, title, artist, lines, 'ai');
     return NextResponse.json({ lines, source: 'ai' });
   } catch (err) {
     // Network failure / timeout — soft-miss, but echo the cause so
@@ -298,6 +302,24 @@ async function handleAiPhase(
     console.error(`[lyrics] AI fallback threw — ${detail}`);
     return NextResponse.json({ lines: null, source: 'ai-miss', error: detail });
   }
+}
+
+/* Guarded cache write for the AI phase. The LLM call takes 10s+; an
+   authoritative source (lrclib/netease/qq) may have written its verdict
+   while we waited. Re-read right before writing and yield to anything
+   terminal — last-write-wins here was how AI lyrics silently replaced
+   real ones. Only an empty slot or a non-terminal 'lrclib-miss' may be
+   claimed by the AI verdict. */
+async function cacheAiOutcome(
+  cacheKey: string,
+  title: string,
+  artist: string,
+  lines: string[],
+  source: 'ai' | 'ai-miss',
+): Promise<void> {
+  const latest = await getCachedLyrics(cacheKey);
+  if (latest && latest.source !== 'lrclib-miss') return;
+  void setCachedLyrics(cacheKey, title, artist, lines, source);
 }
 
 const AI_SYSTEM_PROMPT = `你的任务是查找这首歌真实存在的歌词。这些歌词会被显示给用户做分享卡 — 编造或猜的歌词会被发到聊天里造成实际尴尬。
