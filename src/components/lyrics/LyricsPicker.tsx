@@ -48,36 +48,39 @@ export default function LyricsPicker({
             const order = selected.indexOf(i);
             const isSelected = order >= 0;
             return (
-              <li
-                key={i}
-                className={`${styles.line} ${isSelected ? styles.lineSelected : ''}`}
-                onClick={() => onToggle(i)}
-              >
-                <svg
-                  className={styles.checkbox}
-                  viewBox="0 0 18 18"
-                  aria-hidden
+              <li key={i}>
+                <button
+                  type="button"
+                  className={`${styles.line} ${isSelected ? styles.lineSelected : ''}`}
+                  onClick={() => onToggle(i)}
+                  aria-pressed={isSelected}
                 >
-                  <circle
-                    cx="9"
-                    cy="9"
-                    r="7.5"
-                    fill={isSelected ? 'currentColor' : 'transparent'}
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                  />
-                  {isSelected && (
-                    <path
-                      d="M5.5 9.2 7.8 11.4 12.5 6.6"
-                      stroke="#0a0a0a"
-                      strokeWidth="1.8"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  <svg
+                    className={styles.checkbox}
+                    viewBox="0 0 18 18"
+                    aria-hidden
+                  >
+                    <circle
+                      cx="9"
+                      cy="9"
+                      r="7.5"
+                      fill={isSelected ? 'currentColor' : 'transparent'}
+                      stroke="currentColor"
+                      strokeWidth="1.4"
                     />
-                  )}
-                </svg>
-                <span className={styles.text}>{line}</span>
+                    {isSelected && (
+                      <path
+                        d="M5.5 9.2 7.8 11.4 12.5 6.6"
+                        stroke="#0a0a0a"
+                        strokeWidth="1.8"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                  </svg>
+                  <span className={styles.text}>{line}</span>
+                </button>
               </li>
             );
           })}

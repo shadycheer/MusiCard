@@ -202,7 +202,11 @@ export default function SongView({ canonicalUrl }: Props) {
                     {exporting ? '导出中…' : useMobileShare ? '保存到相册' : '下载图片'}
                   </span>
                 </button>
-                {exportError && <p className={styles.errorText}>{exportError}</p>}
+                {exportError && (
+                  <p className={styles.errorText} role="alert">
+                    {exportError}
+                  </p>
+                )}
               </div>
             </section>
 
