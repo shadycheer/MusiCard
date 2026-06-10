@@ -5,7 +5,7 @@ import {
   lyricsCacheKey,
   type LyricsSource,
 } from '@/lib/storage/db';
-import { fetchLyricViaWeapi } from '@/lib/music/netease';
+import { fetchLyricViaWeapi, searchNeteaseSongId } from '@/lib/music/netease';
 import { fetchQqLyrics } from '@/lib/music/upstream';
 
 const LRCLIB_ENDPOINT = 'https://lrclib.net/api/get';
@@ -103,83 +103,128 @@ async function handleLrclibPhase(
     return NextResponse.json({ lines: null, source: 'lrclib-miss' });
   }
 
-  /* Platform-native lyrics first for NetEase / QQ — both expose direct
-     lyric endpoints that are usually more reliable than LRCLIB for
-     Chinese/Asian tracks. If we have the platform-specific ID, we ONLY
-     use that source; on miss we fall through to AI without hitting
-     LRCLIB at all. (LRCLIB is reserved for Spotify / Apple Music.) */
-  if (neteaseId) {
-    try {
-      const lines = await fetchLyricViaWeapi(neteaseId);
-      if (lines && lines.length > 0) {
-        void setCachedLyrics(cacheKey, title, artist, lines, 'netease');
-        return NextResponse.json({ lines, source: 'netease' });
-      }
-    } catch {
-      // Swallow — fall through to lrclib-miss → AI.
-    }
-    void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
-    return NextResponse.json({ lines: null, source: 'lrclib-miss' });
-  }
-  if (qqMid) {
-    try {
-      const lines = await fetchQqLyrics(qqMid);
-      if (lines && lines.length > 0) {
-        void setCachedLyrics(cacheKey, title, artist, lines, 'qq');
-        return NextResponse.json({ lines, source: 'qq' });
-      }
-    } catch {
-      // Swallow — fall through to lrclib-miss → AI.
-    }
-    void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
-    return NextResponse.json({ lines: null, source: 'lrclib-miss' });
-  }
+  /* Three authoritative lanes start in PARALLEL — all free APIs, so
+     racing costs nothing (unlike the LRCLIB-vs-AI race this codebase
+     removed). The old serial flow sent platform-native misses straight
+     to the slow paid AI phase without ever asking LRCLIB, and never
+     used NetEase's catalog for Spotify/Apple links at all.
 
-  try {
+       A. platform-native by id (NetEase weapi / QQ) — exact, original-
+          language lyrics; highest trust.
+       B. NetEase keyword search → lyric — covers CJK songs pasted as
+          Spotify/Apple links; guarded by a strict title+artist match.
+       C. LRCLIB — canonical for Western catalog.
+
+     Preference: A, then B/C ordered by script (CJK queries trust the
+     NetEase catalog first, Latin queries trust LRCLIB first). We await
+     in priority order rather than Promise.race so a fast low-priority
+     hit can't beat a slower better source. */
+  const nativeP: Promise<LaneOutcome> = (async () => {
+    try {
+      if (neteaseId) {
+        const lines = await fetchLyricViaWeapi(neteaseId);
+        if (lines && lines.length > 0) return { kind: 'hit', lines, source: 'netease' };
+        return { kind: 'miss' };
+      }
+      if (qqMid) {
+        const lines = await fetchQqLyrics(qqMid);
+        if (lines && lines.length > 0) return { kind: 'hit', lines, source: 'qq' };
+        return { kind: 'miss' };
+      }
+      return { kind: 'miss' };
+    } catch (err) {
+      return { kind: 'error', detail: err instanceof Error ? err.message : 'native lyrics failed' };
+    }
+  })();
+
+  const searchP: Promise<LaneOutcome> = (async () => {
+    /* Redundant when we already hold a NetEase id — lane A asks the
+       same catalog with an exact key. */
+    if (neteaseId) return { kind: 'miss' };
+    try {
+      const id = await searchNeteaseSongId(title, artist);
+      if (!id) return { kind: 'miss' };
+      const lines = await fetchLyricViaWeapi(id);
+      if (lines && lines.length > 0) return { kind: 'hit', lines, source: 'netease' };
+      return { kind: 'miss' };
+    } catch (err) {
+      return { kind: 'error', detail: err instanceof Error ? err.message : 'netease search failed' };
+    }
+  })();
+
+  const lrclibP: Promise<LaneOutcome> = (async () => {
     /* LRCLIB indexes by exact track name, so "Imagine" matches but
        "飞机场的10:30 (Live)" doesn't even though the studio version
-       is in the library as "飞机场的10:30". Try the original first,
-       then strip common version suffixes and retry. */
+       is in the library as "飞机场的10:30". Query the original and the
+       suffix-stripped title in parallel; prefer the original on a
+       double hit. */
     const candidates = [title, stripVersionSuffix(title)].filter(
       (t, i, arr) => t && arr.indexOf(t) === i,
     );
-
-    let raw: string | undefined;
-    for (const candidate of candidates) {
-      const url = `${LRCLIB_ENDPOINT}?track_name=${encodeURIComponent(candidate)}&artist_name=${encodeURIComponent(artist)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(LRCLIB_TIMEOUT_MS) });
-      if (res.status === 404) continue;
-      if (!res.ok) {
-        return NextResponse.json({
-          lines: null,
-          source: 'lrclib-miss',
-          error: `LRCLIB returned ${res.status}`,
-        });
-      }
-      const data = (await res.json()) as LrcLibResponse;
-      const text = data.plainLyrics?.trim();
-      if (text) {
-        raw = text;
-        break;
+    const settled = await Promise.allSettled(
+      candidates.map(async (candidate) => {
+        const url = `${LRCLIB_ENDPOINT}?track_name=${encodeURIComponent(candidate)}&artist_name=${encodeURIComponent(artist)}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(LRCLIB_TIMEOUT_MS) });
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error(`LRCLIB returned ${res.status}`);
+        const data = (await res.json()) as LrcLibResponse;
+        return data.plainLyrics?.trim() || null;
+      }),
+    );
+    for (const s of settled) {
+      if (s.status === 'fulfilled' && s.value) {
+        return { kind: 'hit', lines: parseLyricsRaw(s.value), source: 'lrclib' };
       }
     }
-
-    if (!raw) {
-      void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
-      return NextResponse.json({ lines: null, source: 'lrclib-miss' });
+    const failed = settled.find((s) => s.status === 'rejected');
+    if (failed) {
+      return {
+        kind: 'error',
+        detail: failed.reason instanceof Error ? failed.reason.message : 'LRCLIB request failed',
+      };
     }
+    return { kind: 'miss' };
+  })();
 
-    const lines = parseLyricsRaw(raw);
-    void setCachedLyrics(cacheKey, title, artist, lines, 'lrclib');
-    return NextResponse.json({ lines, source: 'lrclib' });
-  } catch (err) {
+  // Kana / Han / Hangul — decides which catalog to trust first.
+  const queryHasCjk = /[぀-ヿ㐀-鿿가-힯]/.test(
+    `${title}${artist}`,
+  );
+  const ordered = queryHasCjk
+    ? [nativeP, searchP, lrclibP]
+    : [nativeP, lrclibP, searchP];
+
+  const outcomes: LaneOutcome[] = [];
+  for (const laneP of ordered) {
+    const outcome = await laneP;
+    if (outcome.kind === 'hit') {
+      void setCachedLyrics(cacheKey, title, artist, outcome.lines, outcome.source);
+      return NextResponse.json({ lines: outcome.lines, source: outcome.source });
+    }
+    outcomes.push(outcome);
+  }
+
+  /* All lanes missed. Only cache the miss when every lane answered
+     cleanly — a transient lane failure must stay retryable instead of
+     pinning this song onto the AI path forever. */
+  const transient = outcomes.find(
+    (o): o is Extract<LaneOutcome, { kind: 'error' }> => o.kind === 'error',
+  );
+  if (transient) {
     return NextResponse.json({
       lines: null,
       source: 'lrclib-miss',
-      error: err instanceof Error ? err.message : 'LRCLIB request failed',
+      error: transient.detail,
     });
   }
+  void setCachedLyrics(cacheKey, title, artist, [], 'lrclib-miss');
+  return NextResponse.json({ lines: null, source: 'lrclib-miss' });
 }
+
+type LaneOutcome =
+  | { kind: 'hit'; lines: string[]; source: 'netease' | 'qq' | 'lrclib' }
+  | { kind: 'miss' }
+  | { kind: 'error'; detail: string };
 
 async function handleAiPhase(
   cacheKey: string,

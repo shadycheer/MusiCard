@@ -143,6 +143,111 @@ export async function fetchSongDetailViaWeapi(songId: string): Promise<WeapiTrac
   };
 }
 
+/* NOTE: this is the LEGACY /weapi/search/get shape — `artists`, not the
+   `ar` of v3 endpoints. The newer /cloudsearch/get/web rejects anonymous
+   weapi calls with code 50000005, so legacy search is the one that works
+   without a logged-in cookie. */
+type WeapiSearchResponse = {
+  code: number;
+  result?: {
+    songs?: Array<{
+      id: number;
+      name: string;
+      artists?: Array<{ id: number; name: string }>;
+    }>;
+  };
+};
+
+/* Traditional→Simplified fold table for the chars that actually show up
+   in song/artist names. Spotify zh metadata is mostly Traditional while
+   NetEase stores Simplified — without folding, "就是愛妳" never equals
+   "就是爱你". Full opencc has ~3k mappings; this curated subset covers
+   the practical title vocabulary (install of opencc-js was abandoned —
+   npm arborist crashes on this lockfile). Two parallel strings, index-
+   aligned. */
+const TRAD =
+  '愛妳個們來對時過說學國會為與風飛樂聽詩韻還沒開關門問間見親舊夢淚離別邊雙後裡裏點線紅綠藍黃萬億幾兩隻鳥馬魚雲電車東動鐘錯鋼鐵銀願讓誰話語謝請讀寫書畫號處場廣應該條樣機構區醫藥頭臉髮體聲嚴斷繼續終結給絕經統總織緣約純細紙帶幫歸當灣濤漢滿漸燈熱憶懷戀慶憂擱擁擇據揮損換摯敗數斂暈曉曠歡歲殘氣決沖況淺溫滅烏無煙燒爛牽獨現瑪環異發盡眾確禮種籃類練罰義習聯聰肅膽臺興艱蘭蟲術衛計訊記訴詞試誌認誤調談論諾謊證識譯議護讚賣質賴贏輕輸轉辭農運遠適選遺鄉釋長閃陽階隨險靈靜順須預頻顆題顏驚鬆鳴麗齊龍';
+const SIMP =
+  '爱你个们来对时过说学国会为与风飞乐听诗韵还没开关门问间见亲旧梦泪离别边双后里里点线红绿蓝黄万亿几两只鸟马鱼云电车东动钟错钢铁银愿让谁话语谢请读写书画号处场广应该条样机构区医药头脸发体声严断继续终结给绝经统总织缘约纯细纸带帮归当湾涛汉满渐灯热忆怀恋庆忧搁拥择据挥损换挚败数敛晕晓旷欢岁残气决冲况浅温灭乌无烟烧烂牵独现玛环异发尽众确礼种篮类练罚义习联聪肃胆台兴艰兰虫术卫计讯记诉词试志认误调谈论诺谎证识译议护赞卖质赖赢轻输转辞农运远适选遗乡释长闪阳阶随险灵静顺须预频颗题颜惊松鸣丽齐龙';
+
+const T2S = new Map<string, string>();
+for (let i = 0; i < TRAD.length; i++) T2S.set(TRAD[i], SIMP[i]);
+
+/* Loose comparison for cross-platform title/artist matching: lowercase,
+   fold Traditional→Simplified, strip whitespace and common punctuation
+   so "化蝶 (Live)" / "化蝶" and "Kiri T" / "KIRI T" compare equal-ish. */
+function looseNorm(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[\s　·•・,，.。'’"“”!！?？\-—–()（）\[\]【】]/g, '')
+    .replace(/./gu, (ch) => T2S.get(ch) ?? ch);
+}
+
+/** Search NetEase by "title artist" keyword and return the best-matching
+ *  song id, or null when nothing matches confidently. Match rule: song
+ *  name must loosely equal (or contain / be contained by) the requested
+ *  title AND at least one artist name must overlap — a wrong-song lyric
+ *  is worse than no lyric, so prefer null over a fuzzy guess. */
+export async function searchNeteaseSongId(
+  title: string,
+  artist: string,
+): Promise<string | null> {
+  const body = {
+    s: `${title} ${artist}`,
+    type: '1',
+    limit: 8,
+    offset: 0,
+    csrf_token: '',
+  };
+  const data = await callWeapi<WeapiSearchResponse>('/search/get', body);
+  if (data.code !== 200) {
+    throw new Error(`weapi search code ${data.code}`);
+  }
+  const songs = data.result?.songs ?? [];
+
+  const wantTitle = looseNorm(title);
+  /* Artist strings arrive as "A, B" / "A & B" / "A、B" — any fragment
+     matching any of the song's artists counts. */
+  const wantArtists = artist
+    .split(/[,&、/]|feat\.?/i)
+    .map(looseNorm)
+    .filter((a) => a.length > 0);
+
+  for (const [rank, song] of songs.entries()) {
+    const gotTitle = looseNorm(song.name ?? '');
+    if (!gotTitle) continue;
+    const gotArtists = (song.artists ?? []).map((a) => looseNorm(a.name ?? ''));
+    const artistExact =
+      wantArtists.length > 0 && gotArtists.some((g) => wantArtists.includes(g));
+    const artistOk =
+      wantArtists.length === 0 ||
+      gotArtists.some((g) =>
+        wantArtists.some((w) => g === w || g.includes(w) || w.includes(g)),
+      );
+
+    const titleOk =
+      gotTitle === wantTitle ||
+      gotTitle.includes(wantTitle) ||
+      wantTitle.includes(gotTitle);
+    if (titleOk && artistOk) return String(song.id);
+
+    /* Last-resort fallback for variant chars the T2S table doesn't
+       cover: T→S conversion is char-for-char, so the two spellings of
+       one title have EQUAL length and agree at every non-variant
+       position. Gated hard — TOP result + exact artist only — because
+       positional similarity can't tell a variant pair from a real
+       difference ("就是爱你" vs "就是爱我" both score 0.5+). */
+    if (rank === 0 && artistExact && gotTitle.length === wantTitle.length) {
+      let same = 0;
+      for (let i = 0; i < gotTitle.length; i++) {
+        if (gotTitle[i] === wantTitle[i]) same++;
+      }
+      if (same / gotTitle.length >= 0.5) return String(song.id);
+    }
+  }
+  return null;
+}
+
 type WeapiLyricResponse = {
   code: number;
   lrc?: { lyric?: string | null };
