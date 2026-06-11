@@ -4,7 +4,7 @@
  */
 
 import type { CachedTrack } from '@/lib/storage/db';
-import { fetchSongDetailViaWeapi } from './netease';
+import { fetchSongDetailViaWeapi, stripLeadingCredits } from './netease';
 
 type UpstreamFields = Pick<
   CachedTrack,
@@ -250,21 +250,17 @@ export async function fetchQqLyrics(songMid: string): Promise<string[] | null> {
     if (!res.ok) return null;
     const data = (await res.json()) as { code?: number; lyric?: string };
     if (data.code !== 0 || !data.lyric) return null;
-    const lines = data.lyric
-      .split(/\r?\n/)
-      .map((line) =>
-        line
-          .replace(/^\s*(?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*)+/, '')
-          .replace(/^\s*\[(?:ti|ar|al|by|offset|length):[^\]]*\]\s*$/i, '')
-          .trim(),
-      )
-      .filter((line) => line.length > 0)
-      .filter(
-        (line) =>
-          !/^(作词|作曲|编曲|制作|出品|监制|混音|母带|录音|和声|吉他|贝斯|鼓|键盘)\s*[：:]/i.test(
-            line,
-          ),
-      );
+    const lines = stripLeadingCredits(
+      data.lyric
+        .split(/\r?\n/)
+        .map((line) =>
+          line
+            .replace(/^\s*(?:\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*)+/, '')
+            .replace(/^\s*\[(?:ti|ar|al|by|offset|length):[^\]]*\]\s*$/i, '')
+            .trim(),
+        )
+        .filter((line) => line.length > 0),
+    );
     return lines.length > 0 ? lines : null;
   } catch {
     return null;

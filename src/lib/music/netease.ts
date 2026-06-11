@@ -274,7 +274,7 @@ export async function fetchLyricViaWeapi(songId: string): Promise<string[] | nul
   if (data.nolyric || data.uncollected) return null;
   const raw = data.lrc?.lyric?.trim();
   if (!raw) return null;
-  return raw
+  const lines = raw
     .split(/\r?\n/)
     .map((line) =>
       line
@@ -285,10 +285,19 @@ export async function fetchLyricViaWeapi(songId: string): Promise<string[] | nul
         .replace(/^\s*\[(?:ti|ar|al|by|offset|length):[^\]]*\]\s*$/i, '')
         .trim(),
     )
-    .filter((line) => line.length > 0)
-    // Drop NetEase's inlined credit lines (作词/作曲/编曲/制作 …): they live
-    // as regular lyric rows with no special marker, so the LRC-tag filter
-    // above misses them. Match either a Chinese colon (：) or ASCII colon
-    // following the credit label.
-    .filter((line) => !/^(作词|作曲|编曲|制作|出品|监制|混音|母带)\s*[：:]/i.test(line));
+    .filter((line) => line.length > 0);
+  return stripLeadingCredits(lines);
+}
+
+/* NetEase/QQ embed the production credits as a contiguous run of
+   "职衔 : 名字" rows at the TOP of the LRC body. The label vocabulary is
+   open-ended (制作人/录音师/和音/OP…), so strip by shape — short label
+   before a colon — and only in the leading run, where a real lyric
+   line with a colon is vanishingly rare. */
+export function stripLeadingCredits(lines: string[]): string[] {
+  let start = 0;
+  while (start < lines.length && /^[^：:]{1,12}\s*[：:]/.test(lines[start])) {
+    start++;
+  }
+  return lines.slice(start);
 }
