@@ -5,10 +5,15 @@ import {
   lyricsCacheKey,
   type LyricsSource,
 } from '@/lib/storage/db';
-import { fetchLyricViaWeapi, searchNeteaseSongId } from '@/lib/music/netease';
+import {
+  fetchLyricViaWeapi,
+  searchNeteaseSongId,
+  looseNorm,
+} from '@/lib/music/netease';
 import { fetchQqLyrics } from '@/lib/music/upstream';
 
 const LRCLIB_ENDPOINT = 'https://lrclib.net/api/get';
+const LRCLIB_SEARCH_ENDPOINT = 'https://lrclib.net/api/search';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const AI_MODEL = (process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v4-pro').replace(
   /:online$/,
@@ -41,6 +46,14 @@ type LrcLibResponse = {
   syncedLyrics?: string | null;
 };
 
+type LrcLibSearchItem = {
+  trackName?: string;
+  artistName?: string;
+  /* Seconds, unlike our ms convention. */
+  duration?: number;
+  plainLyrics?: string | null;
+};
+
 type LyricsPayload = {
   lines: string[] | null;
   source: LyricsSource;
@@ -59,6 +72,9 @@ export async function GET(request: NextRequest) {
   const neteaseId = request.nextUrl.searchParams.get('neteaseId') ?? undefined;
   const qqMid = request.nextUrl.searchParams.get('qqMid') ?? undefined;
   const phase = request.nextUrl.searchParams.get('phase') ?? 'lrclib';
+  const durationRaw = request.nextUrl.searchParams.get('durationMs');
+  const durationMs =
+    durationRaw && /^\d+$/.test(durationRaw) ? Number(durationRaw) : undefined;
   if (!title || !artist) {
     return NextResponse.json({ error: 'missing title or artist' }, { status: 400 });
   }
@@ -69,7 +85,15 @@ export async function GET(request: NextRequest) {
   if (phase === 'ai') {
     return handleAiPhase(cacheKey, title, artist, cached);
   }
-  return handleLrclibPhase(cacheKey, title, artist, cached, neteaseId, qqMid);
+  return handleLrclibPhase(
+    cacheKey,
+    title,
+    artist,
+    cached,
+    neteaseId,
+    qqMid,
+    durationMs,
+  );
 }
 
 async function handleLrclibPhase(
@@ -79,6 +103,7 @@ async function handleLrclibPhase(
   cached: { lines: string[]; source: LyricsSource } | null,
   neteaseId: string | undefined,
   qqMid: string | undefined,
+  durationMs: number | undefined,
 ): Promise<NextResponse<LyricsPayload | { error: string }>> {
   if (cached) {
     // Terminal cache outcomes — return immediately, never re-query.
@@ -103,22 +128,11 @@ async function handleLrclibPhase(
     return NextResponse.json({ lines: null, source: 'lrclib-miss' });
   }
 
-  /* Three authoritative lanes start in PARALLEL — all free APIs, so
-     racing costs nothing (unlike the LRCLIB-vs-AI race this codebase
-     removed). The old serial flow sent platform-native misses straight
-     to the slow paid AI phase without ever asking LRCLIB, and never
-     used NetEase's catalog for Spotify/Apple links at all.
-
-       A. platform-native by id (NetEase weapi / QQ) — exact, original-
-          language lyrics; highest trust.
-       B. NetEase keyword search → lyric — covers CJK songs pasted as
-          Spotify/Apple links; guarded by a strict title+artist match.
-       C. LRCLIB — canonical for Western catalog.
-
-     Preference: A, then B/C ordered by script (CJK queries trust the
-     NetEase catalog first, Latin queries trust LRCLIB first). We await
-     in priority order rather than Promise.race so a fast low-priority
-     hit can't beat a slower better source. */
+  /* Three free authoritative lanes in parallel: platform-native by id,
+     NetEase keyword search, LRCLIB. Awaited in trust order (CJK queries
+     prefer the NetEase catalog, Latin prefer LRCLIB) rather than
+     Promise.race, so a fast low-priority hit can't beat a better
+     source. AI stays in phase 2 exclusively. */
   const nativeP: Promise<LaneOutcome> = (async () => {
     try {
       if (neteaseId) {
@@ -142,7 +156,7 @@ async function handleLrclibPhase(
        same catalog with an exact key. */
     if (neteaseId) return { kind: 'miss' };
     try {
-      const id = await searchNeteaseSongId(title, artist);
+      const id = await searchNeteaseSongId(title, artist, durationMs);
       if (!id) return { kind: 'miss' };
       const lines = await fetchLyricViaWeapi(id);
       if (lines && lines.length > 0) return { kind: 'hit', lines, source: 'netease' };
@@ -176,6 +190,43 @@ async function handleLrclibPhase(
         return { kind: 'hit', lines: parseLyricsRaw(s.value), source: 'lrclib' };
       }
     }
+
+    /* Exact get missed. LRCLIB often stores CJK songs under romanized
+       artist names ("Denise Ho" for 何韻詩), so artist equality is the
+       wrong key — search by title alone and let the runtime pick the
+       right recording. Hard ±4s gate: here duration is the ONLY
+       disambiguator against covers and same-title songs. */
+    if (durationMs) {
+      try {
+        const res = await fetch(
+          `${LRCLIB_SEARCH_ENDPOINT}?track_name=${encodeURIComponent(title)}`,
+          { signal: AbortSignal.timeout(LRCLIB_TIMEOUT_MS) },
+        );
+        if (res.ok) {
+          const items = (await res.json()) as LrcLibSearchItem[];
+          const wantTitle = looseNorm(title);
+          const best = items
+            .filter((it) => it.plainLyrics?.trim())
+            .filter((it) => looseNorm(it.trackName ?? '') === wantTitle)
+            .map((it) => ({
+              it,
+              delta: Math.abs((it.duration ?? 0) * 1000 - durationMs),
+            }))
+            .filter((x) => x.delta <= 4000)
+            .sort((a, b) => a.delta - b.delta)[0];
+          if (best) {
+            return {
+              kind: 'hit',
+              lines: parseLyricsRaw(best.it.plainLyrics!.trim()),
+              source: 'lrclib',
+            };
+          }
+        }
+      } catch {
+        // Fallback search failing must not mask the exact-get verdict.
+      }
+    }
+
     const failed = settled.find((s) => s.status === 'rejected');
     if (failed) {
       return {
@@ -232,12 +283,8 @@ async function handleAiPhase(
   artist: string,
   cached: { lines: string[]; source: LyricsSource } | null,
 ): Promise<NextResponse<LyricsPayload | { error: string }>> {
-  /* ANY terminal verdict that landed since the client kicked this phase
-     wins — including authoritative lrclib/netease/qq hits. The old code
-     only short-circuited on ai/ai-miss, so an AI phase racing a
-     successful LRCLIB phase would run the LLM anyway and overwrite the
-     real lyrics with AI ones (the "song flips to AI badge on revisit"
-     bug). 'lrclib-miss' is the only non-terminal state. */
+  /* Any terminal verdict wins — never run the LLM over authoritative
+     lyrics ('lrclib-miss' is the only non-terminal state). */
   if (cached && cached.source !== 'lrclib-miss') {
     if (cached.source === 'ai-miss') {
       return NextResponse.json({ lines: null, source: 'ai-miss' });
@@ -349,12 +396,9 @@ async function handleAiPhase(
   }
 }
 
-/* Guarded cache write for the AI phase. The LLM call takes 10s+; an
-   authoritative source (lrclib/netease/qq) may have written its verdict
-   while we waited. Re-read right before writing and yield to anything
-   terminal — last-write-wins here was how AI lyrics silently replaced
-   real ones. Only an empty slot or a non-terminal 'lrclib-miss' may be
-   claimed by the AI verdict. */
+/* The LLM call takes 10s+ — an authoritative verdict may land while it
+   runs. Re-read before writing; AI may only claim an empty slot or a
+   non-terminal 'lrclib-miss'. */
 async function cacheAiOutcome(
   cacheKey: string,
   title: string,

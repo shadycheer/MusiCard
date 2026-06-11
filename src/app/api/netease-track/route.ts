@@ -38,5 +38,6 @@ function toResponse(t: CachedTrack) {
     sourceUrl: t.sourceUrl,
     albumId: t.albumId ?? null,
     albumName: t.albumName ?? null,
+    durationMs: t.durationMs ?? null,
   };
 }

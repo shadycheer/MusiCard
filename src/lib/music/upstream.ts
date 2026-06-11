@@ -8,7 +8,14 @@ import { fetchSongDetailViaWeapi } from './netease';
 
 type UpstreamFields = Pick<
   CachedTrack,
-  'title' | 'artist' | 'coverUrl' | 'sourceUrl' | 'locale' | 'albumId' | 'albumName'
+  | 'title'
+  | 'artist'
+  | 'coverUrl'
+  | 'sourceUrl'
+  | 'locale'
+  | 'albumId'
+  | 'albumName'
+  | 'durationMs'
 >;
 
 const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
@@ -80,6 +87,7 @@ type SpotifyApiTrack = {
     images: Array<{ url: string; height: number }>;
   };
   external_urls: { spotify: string };
+  duration_ms?: number;
 };
 
 export async function fetchSpotifyTrack(
@@ -105,6 +113,7 @@ export async function fetchSpotifyTrack(
     sourceUrl: track.external_urls.spotify,
     albumId: track.album.id,
     albumName: track.album.name,
+    durationMs: track.duration_ms ?? null,
   };
 }
 
@@ -115,6 +124,7 @@ type ItunesResult = {
   trackViewUrl?: string;
   collectionId?: number;
   collectionName?: string;
+  trackTimeMillis?: number;
 };
 
 export async function fetchAppleMusicTrack(
@@ -146,6 +156,7 @@ export async function fetchAppleMusicTrack(
     sourceUrl: item.trackViewUrl ?? fallbackSourceUrl,
     albumId: item.collectionId ? String(item.collectionId) : undefined,
     albumName: item.collectionName ?? undefined,
+    durationMs: item.trackTimeMillis ?? null,
   };
 }
 
@@ -163,6 +174,7 @@ export async function fetchNeteaseTrack(songId: string): Promise<UpstreamFields>
     sourceUrl: `https://music.163.com/song?id=${songId}`,
     albumId: track.albumId || undefined,
     albumName: track.albumName || undefined,
+    durationMs: track.durationMs ?? null,
   };
 }
 
@@ -180,6 +192,8 @@ type QqSongResponse = {
     name: string;
     singer: Array<{ mid?: string; name: string }>;
     album: { mid: string; name: string };
+    /* Runtime in SECONDS (QQ's convention), unlike everyone else's ms. */
+    interval?: number;
   }>;
 };
 
@@ -220,6 +234,7 @@ export async function fetchQqMusicTrack(songIdOrMid: string): Promise<UpstreamFi
     sourceUrl: `https://y.qq.com/n/ryqq/songDetail/${canonicalMid}`,
     albumId: song.album.mid || undefined,
     albumName: song.album.name || undefined,
+    durationMs: song.interval ? song.interval * 1000 : null,
   };
 }
 

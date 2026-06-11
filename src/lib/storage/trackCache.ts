@@ -63,14 +63,10 @@ export function removeCachedTrack(sourceUrl: string): void {
   }
 }
 
-/* ─── Visit history ───────────────────────────────────────────────────
-
-   The shelf used to be derived from the API cache above, which made
-   the cache's 7-day TTL silently evict shelf entries. History is its
-   own permanent store now: the cache answers "do we have fresh track
-   data", history answers "what has this person listened to". Keyed
-   OUTSIDE the cache PREFIX namespace so cache scans never touch it. */
-
+/* Visit history — permanent, separate from the TTL'd API cache above:
+   the cache answers "is this track data fresh", history answers "what
+   has this person listened to". Keyed outside the cache PREFIX
+   namespace so cache scans never touch it. */
 const HISTORY_KEY = 'music-card-history:v1';
 
 type HistoryEntry = { track: Track; visitedAt: number };

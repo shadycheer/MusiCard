@@ -18,10 +18,12 @@ export async function fetchLyricsLrclib(
   signal?: AbortSignal,
   neteaseId?: string,
   qqMid?: string,
+  durationMs?: number,
 ): Promise<LyricsFetchResult> {
   const params = new URLSearchParams({ title: track, artist });
   if (neteaseId) params.set('neteaseId', neteaseId);
   if (qqMid) params.set('qqMid', qqMid);
+  if (durationMs) params.set('durationMs', String(durationMs));
   const res = await fetch(`/api/lyrics?${params.toString()}`, { signal });
   if (!res.ok) {
     const error = `LRCLIB request failed (${res.status})`;

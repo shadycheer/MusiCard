@@ -4,22 +4,11 @@ import { platforms } from '@/lib/music/platforms';
 import type { Track } from '@/lib/music/songlink';
 import type { LyricsState } from '@/components/lyrics/LyricsPicker';
 
-/* Lyrics state machine: authoritative phase, then AI fallback.
-
-   STRICTLY SEQUENTIAL — the providers used to race from t=0, which
-   (a) burned an OpenRouter web-search call (~$0.05) on every song
-   even when LRCLIB hit, and (b) the late server-side AI write
-   clobbered the freshly cached lrclib lyrics, so revisits showed the
-   "AI 找回" badge on songs that had real lyrics. The server now
-   guards its cache writes too, but not starting the AI request at
-   all is the first line of defense.
-
-   Phase 1: LRCLIB (community DB, plus NetEase/QQ side routes when we
-   know the platform id). Any hit is terminal. Special sentinel
-   `ai-miss` short-circuits to not-found (a previous AI attempt
-   already failed and was cached).
-   Phase 2: AI with web search — fires only after an authoritative
-   miss, i.e. exactly the cold-tail it was budgeted for. */
+/* Lyrics state machine: authoritative phase, then AI fallback —
+   STRICTLY sequential. Racing them from t=0 burned a paid web-search
+   call on every song and let the slow AI write clobber freshly cached
+   authoritative lyrics. Sentinel `ai-miss` short-circuits to
+   not-found (a previous AI attempt already failed and was cached). */
 
 type LyricsControls = {
   state: LyricsState;
@@ -45,7 +34,7 @@ export function useLyricsRace(
     setState({ kind: 'loading' });
 
     const ctrl = new AbortController();
-    const { title, artist, platform, sourceUrl } = track;
+    const { title, artist, platform, sourceUrl, durationMs } = track;
     /* Platform-native track id helps LRCLIB's NetEase/QQ side routes
        hit faster (or hit at all when the song lacks Western metadata).
        Apple Music + Spotify go through LRCLIB's primary path which
@@ -73,6 +62,7 @@ export function useLyricsRace(
         lrclibCtrl.signal,
         neteaseId,
         qqMid,
+        durationMs,
       ).catch(() => null);
       if (ctrl.signal.aborted) return;
 

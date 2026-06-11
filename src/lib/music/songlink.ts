@@ -17,6 +17,8 @@ export type Track = {
      tracks into one card. */
   albumId?: string;
   albumName?: string;
+  /* Runtime in ms — the cross-language invariant lyrics matching keys on. */
+  durationMs?: number;
 };
 
 /* Shared response shape — all four /api/*-track endpoints return
@@ -29,6 +31,7 @@ type TrackApiResponse = {
   sourceUrl: string;
   albumId?: string | null;
   albumName?: string | null;
+  durationMs?: number | null;
 };
 
 /* Single fetcher driven by the platform registry. The shape that used
@@ -71,6 +74,7 @@ export async function fetchTrack(
     platform,
     albumId: data.albumId ?? undefined,
     albumName: data.albumName ?? undefined,
+    durationMs: data.durationMs ?? undefined,
   };
   setCachedTrack(canonicalUrl, track);
   recordHistory(track);

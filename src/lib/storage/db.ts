@@ -20,6 +20,9 @@ export type CachedTrack = {
      groups by (artist + albumName) only when both are present. */
   albumId?: string | null;
   albumName?: string | null;
+  /* Runtime in ms — null on rows cached before the column existed,
+     backfilled by TTL refresh. */
+  durationMs?: number | null;
 };
 
 export async function getCachedTrack(
@@ -28,7 +31,7 @@ export async function getCachedTrack(
   if (!sql) return null;
   try {
     const rows = (await sql`
-      SELECT platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name
+      SELECT platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name, duration_ms
       FROM tracks
       WHERE cache_key = ${cacheKey}
       LIMIT 1
@@ -43,6 +46,7 @@ export async function getCachedTrack(
       source_url: string;
       album_id: string | null;
       album_name: string | null;
+      duration_ms: number | null;
     }>;
     const row = rows[0];
     if (!row) return null;
@@ -61,6 +65,7 @@ export async function getCachedTrack(
       sourceUrl: row.source_url,
       albumId: row.album_id,
       albumName: row.album_name,
+      durationMs: row.duration_ms,
     };
   } catch (err) {
     console.error('[db] getCachedTrack failed:', err);
@@ -141,11 +146,11 @@ export async function setCachedTrack(
   try {
     await sql`
       INSERT INTO tracks
-        (cache_key, platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name, hit_count, last_hit_at)
+        (cache_key, platform, external_id, country, locale, title, artist, cover_url, source_url, album_id, album_name, duration_ms, hit_count, last_hit_at)
       VALUES
         (${cacheKey}, ${track.platform}, ${track.externalId}, ${track.country},
          ${track.locale}, ${track.title}, ${track.artist}, ${track.coverUrl},
-         ${track.sourceUrl}, ${track.albumId ?? null}, ${track.albumName ?? null}, 1, NOW())
+         ${track.sourceUrl}, ${track.albumId ?? null}, ${track.albumName ?? null}, ${track.durationMs ?? null}, 1, NOW())
       ON CONFLICT (cache_key) DO UPDATE SET
         title = EXCLUDED.title,
         artist = EXCLUDED.artist,
@@ -154,6 +159,8 @@ export async function setCachedTrack(
         locale = EXCLUDED.locale,
         album_id = EXCLUDED.album_id,
         album_name = EXCLUDED.album_name,
+        -- COALESCE: a refresh that lacks duration must not wipe a known value
+        duration_ms = COALESCE(EXCLUDED.duration_ms, tracks.duration_ms),
         last_refreshed = NOW(),
         hit_count = tracks.hit_count + 1,
         last_hit_at = NOW()
